@@ -1,0 +1,24 @@
+{
+  "name": "SafeGuard Zambia",
+  "short_name": "SafeGuard",
+  "description": "GBV Response & Survivor Support App",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#140f09",
+  "theme_color": "#140f09",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

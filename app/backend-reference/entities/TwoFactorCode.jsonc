@@ -1,0 +1,51 @@
+{
+  "name": "TwoFactorCode",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string"
+    },
+    "code_hash": {
+      "type": "string",
+      "description": "Hashed 6-digit code"
+    },
+    "expires_at": {
+      "type": "string",
+      "description": "ISO timestamp when code expires"
+    },
+    "consumed": {
+      "type": "boolean",
+      "default": false
+    },
+    "attempts": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "user_email",
+    "code_hash",
+    "expires_at"
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "$or": [
+        {
+          "data.user_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {},
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

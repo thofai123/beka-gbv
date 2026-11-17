@@ -1,0 +1,79 @@
+{
+  "name": "Message",
+  "type": "object",
+  "properties": {
+    "case_id": {
+      "type": "string"
+    },
+    "sender_name": {
+      "type": "string"
+    },
+    "sender_role": {
+      "type": "string",
+      "enum": [
+        "survivor",
+        "responder",
+        "admin",
+        "system"
+      ]
+    },
+    "message": {
+      "type": "string"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "chat",
+        "sms",
+        "whatsapp",
+        "system"
+      ],
+      "default": "chat"
+    },
+    "is_read": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "case_id",
+    "message"
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": {
+              "$in": [
+                "admin",
+                "responder"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

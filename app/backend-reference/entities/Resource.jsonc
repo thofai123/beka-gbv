@@ -1,0 +1,127 @@
+{
+  "name": "Resource",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "vsu",
+        "osc",
+        "shelter",
+        "legal_aid",
+        "medical",
+        "counseling",
+        "hotline",
+        "police",
+        "child_protection",
+        "gbv_support",
+        "emergency_response",
+        "other"
+      ]
+    },
+    "description": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "whatsapp": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "website": {
+      "type": "string"
+    },
+    "map_url": {
+      "type": "string",
+      "description": "Google Maps URL for navigation"
+    },
+    "document_url": {
+      "type": "string",
+      "description": "Linked PDF / document URL"
+    },
+    "address": {
+      "type": "string"
+    },
+    "district": {
+      "type": "string",
+      "description": "Zambian district"
+    },
+    "province": {
+      "type": "string",
+      "enum": [
+        "Lusaka",
+        "Copperbelt",
+        "Central",
+        "Eastern",
+        "Northern",
+        "Luapula",
+        "Western",
+        "Southern",
+        "North-Western",
+        "Muchinga"
+      ]
+    },
+    "location_lat": {
+      "type": "number"
+    },
+    "location_lng": {
+      "type": "number"
+    },
+    "operating_hours": {
+      "type": "string"
+    },
+    "languages": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "is_free": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "name",
+    "type"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "data.is_active": true
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

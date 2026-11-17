@@ -1,0 +1,72 @@
+{
+  "name": "StaffMessage",
+  "type": "object",
+  "properties": {
+    "sender_name": {
+      "type": "string",
+      "description": "Display name of the staff member who sent the message"
+    },
+    "sender_role": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "responder"
+      ],
+      "description": "Role of the sender"
+    },
+    "message": {
+      "type": "string",
+      "description": "Message body"
+    },
+    "related_case_id": {
+      "type": "string",
+      "description": "Optional case ID this message refers to"
+    },
+    "related_case_ref": {
+      "type": "string",
+      "description": "Human-readable case reference (e.g. GBV-2024-0001)"
+    }
+  },
+  "required": [
+    "message"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": {
+          "$in": [
+            "admin",
+            "responder"
+          ]
+        }
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": {
+          "$in": [
+            "admin",
+            "responder"
+          ]
+        }
+      }
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

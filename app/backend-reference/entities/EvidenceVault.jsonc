@@ -1,0 +1,92 @@
+{
+  "name": "EvidenceVault",
+  "type": "object",
+  "properties": {
+    "file_url": {
+      "type": "string",
+      "description": "Uploaded file URL"
+    },
+    "file_name": {
+      "type": "string"
+    },
+    "file_type": {
+      "type": "string",
+      "enum": [
+        "photo",
+        "audio",
+        "document",
+        "zp_form_32",
+        "other"
+      ],
+      "description": "Type of evidence"
+    },
+    "description": {
+      "type": "string",
+      "description": "Notes about this evidence"
+    },
+    "case_id": {
+      "type": "string",
+      "description": "Optional linked case ID"
+    },
+    "case_ref": {
+      "type": "string",
+      "description": "Human-readable case reference"
+    },
+    "file_size_kb": {
+      "type": "number"
+    },
+    "is_sensitive": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "file_url",
+    "file_name",
+    "file_type"
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "responder"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

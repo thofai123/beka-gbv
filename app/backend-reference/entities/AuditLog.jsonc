@@ -1,0 +1,72 @@
+{
+  "name": "AuditLog",
+  "type": "object",
+  "properties": {
+    "actor_id": {
+      "type": "string",
+      "description": "ID of the user or system actor who performed the action"
+    },
+    "actor_email": {
+      "type": "string",
+      "description": "Email of the actor where available"
+    },
+    "actor_role": {
+      "type": "string",
+      "description": "Role of the actor at the time of the action"
+    },
+    "action_type": {
+      "type": "string",
+      "description": "Type of action performed, e.g. create, update, delete, status_change, upload, download"
+    },
+    "entity_type": {
+      "type": "string",
+      "description": "Entity type affected by the action"
+    },
+    "entity_id": {
+      "type": "string",
+      "description": "ID of the affected entity record"
+    },
+    "related_case_id": {
+      "type": "string",
+      "description": "Related case ID when applicable"
+    },
+    "previous_value": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Previous data snapshot or changed fields"
+    },
+    "new_value": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "New data snapshot or changed fields"
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "ISO timestamp for the action"
+    }
+  },
+  "required": [
+    "action_type",
+    "entity_type",
+    "entity_id",
+    "timestamp"
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

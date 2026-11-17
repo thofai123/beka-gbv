@@ -1,0 +1,44 @@
+{
+  "name": "AccessCode",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string"
+    },
+    "label": {
+      "type": "string"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "code",
+    "role",
+    "is_active"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "data.is_active": true
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

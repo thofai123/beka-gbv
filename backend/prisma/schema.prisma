@@ -1,0 +1,491 @@
+// BEKA backend — Prisma schema
+// Postgres data model derived from the original 17 app entities.
+//
+// Conventions:
+//  - Every record has id / created_date / updated_date / created_by
+//    (created_by holds the creator's email, matching the app's RLS model).
+//  - Enums mirror the original entity definitions.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  admin
+  responder
+  survivor
+  user
+}
+
+enum Specialization {
+  general
+  counseling
+  legal
+  medical
+  shelter
+}
+
+enum IncidentType {
+  physical_violence
+  sexual_violence
+  emotional_abuse
+  economic_abuse
+  stalking
+  trafficking
+  forced_marriage
+  other
+}
+
+enum CaseStatus {
+  received
+  dispatched
+  acknowledged
+  in_progress
+  resolved
+  escalated
+  failed
+  reported
+  assigned
+  closed
+}
+
+enum RiskLevel {
+  low
+  medium
+  high
+  critical
+}
+
+enum ReportSource {
+  report
+  panic_alert
+}
+
+enum Channel {
+  app
+  web
+  whatsapp
+  ussd
+  sms
+}
+
+enum CaseUpdateType {
+  status_change
+  note
+  assignment
+  risk_change
+  resolution
+}
+
+enum EvidenceType {
+  photo
+  audio
+  document
+  zp_form_32
+  other
+}
+
+enum IncidentLogStatus {
+  draft
+  finalized
+  exported
+}
+
+enum Province {
+  Lusaka
+  Copperbelt
+  Central
+  Eastern
+  Northern
+  Luapula
+  Western
+  Southern
+  North_Western  // "North-Western"
+  Muchinga
+}
+
+enum MessageSenderRole {
+  survivor
+  responder
+  admin
+  system
+}
+
+enum MessageChannel {
+  chat
+  sms
+  whatsapp
+  system
+}
+
+enum NotificationType {
+  panic_alert
+  case_update
+  assignment
+  message
+  system
+}
+
+enum PanicStatus {
+  triggered
+  acknowledged
+  responded
+  resolved
+  escalated
+}
+
+enum ResourceType {
+  vsu
+  osc
+  shelter
+  legal_aid
+  medical
+  counseling
+  hotline
+  police
+  child_protection
+  gbv_support
+  emergency_response
+  other
+}
+
+enum ResponseUnitType {
+  police
+  hospital
+  ngo
+  social_services
+  shelter
+  legal_aid
+  vsu
+  osc
+  other
+}
+
+enum OnCallStatus {
+  available
+  busy
+  off_duty
+}
+
+enum StaffRole {
+  admin
+  responder
+}
+
+enum WhatsAppStep {
+  greeting
+  incident_type
+  description
+  location
+  anonymous_choice
+  name
+  submitted
+}
+
+// ---------------------------------------------------------------------------
+// Models
+// ---------------------------------------------------------------------------
+
+model User {
+  id                     String   @id @default(cuid())
+  email                  String   @unique
+  password_hash          String?
+  google_id             String?  @unique
+  role                   Role     @default(survivor)
+  first_name             String?
+  last_name              String?
+  full_name              String?
+  phone                  String?
+  phone_verified         Boolean  @default(false)
+  email_verified         Boolean  @default(false)
+  emergency_title        String   @default("I need help")
+  profile_picture        String?
+  specialization         Specialization @default(general)
+  is_available           Boolean  @default(true)
+  location_lat           Float?
+  location_lng           Float?
+  location_updated_at    DateTime?
+  notify_in_app          Boolean  @default(true)
+  notify_sms             Boolean  @default(true)
+  notify_push            Boolean  @default(true)
+  privacy_share_location Boolean  @default(true)
+  privacy_share_case     Boolean  @default(true)
+  privacy_allow_followup Boolean  @default(true)
+
+  created_date DateTime @default(now())
+  updated_date DateTime @updatedAt
+  created_by   String?
+}
+
+model AccessCode {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  role         String
+  label        String?
+  is_active    Boolean  @default(true)
+  created_date DateTime @default(now())
+  updated_date DateTime @updatedAt
+  created_by   String?
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  actor_id       String?
+  actor_email    String?
+  actor_role     String?
+  action_type    String
+  entity_type    String
+  entity_id      String
+  related_case_id String?
+  previous_value Json?
+  new_value      Json?
+  timestamp      String
+  created_date   DateTime @default(now())
+  updated_date   DateTime @updatedAt
+  created_by     String?
+}
+
+model Case {
+  id                     String   @id @default(cuid())
+  case_id                String?  @unique
+  incident_type          IncidentType
+  description            String
+  status                 CaseStatus  @default(received)
+  risk_level             RiskLevel   @default(medium)
+  is_anonymous           Boolean  @default(false)
+  reporter_email         String?
+  reporter_user_id       String?
+  survivor_name          String?
+  survivor_contact       String?
+  location_lat           Float?
+  location_lng           Float?
+  location_captured_at   String?
+  location_description    String?
+  assigned_responder     String?
+  assigned_responder_name String?
+  assigned_unit_id       String?
+  assigned_unit_name     String?
+  attachments            String[]
+  ai_summary             String?
+  resolution_notes       String?
+  resolved_at            String?
+  acknowledged_at        String?
+  acknowledged_by        String?
+  dispatched_at          String?
+  escalation_count       Int      @default(0)
+  report_source          ReportSource @default(report)
+  channel                Channel  @default(app)
+  client_idempotency_key String?  @unique
+
+  created_date DateTime @default(now())
+  updated_date DateTime @updatedAt
+  created_by   String?
+}
+
+model CaseUpdate {
+  id              String   @id @default(cuid())
+  case_id         String
+  update_type     CaseUpdateType
+  note            String?
+  old_value       String?
+  new_value       String?
+  updated_by_name String?
+  created_date    DateTime @default(now())
+  updated_date    DateTime @updatedAt
+  created_by      String?
+}
+
+model EmergencyContact {
+  id             String   @id @default(cuid())
+  user_id        String?
+  name           String
+  phone          String
+  relationship   String?
+  priority       Int      @default(1)
+  notify_location Boolean @default(true)
+  created_date   DateTime @default(now())
+  updated_date   DateTime @updatedAt
+  created_by     String?
+}
+
+model EvidenceVault {
+  id            String   @id @default(cuid())
+  file_url      String
+  file_name     String
+  file_type     EvidenceType
+  description   String?
+  case_id       String?
+  case_ref      String?
+  file_size_kb  Float?
+  is_sensitive  Boolean  @default(true)
+  created_date  DateTime @default(now())
+  updated_date  DateTime @updatedAt
+  created_by    String?
+}
+
+model IncidentLog {
+  id                  String   @id @default(cuid())
+  who_perpetrator     String?
+  who_witnesses       String?
+  what_happened       String
+  what_injuries       String?
+  when_date           String
+  when_time           String?
+  where_location      String
+  where_province      Province?
+  prior_incidents     String?
+  police_report_number String?
+  status              IncidentLogStatus @default(draft)
+  linked_case_id      String?
+  created_date        DateTime @default(now())
+  updated_date        DateTime @updatedAt
+  created_by          String?
+}
+
+model Message {
+  id           String   @id @default(cuid())
+  case_id      String
+  sender_name  String?
+  sender_role  MessageSenderRole?
+  message      String
+  channel      MessageChannel @default(chat)
+  is_read      Boolean  @default(false)
+  created_date DateTime @default(now())
+  updated_date DateTime @updatedAt
+  created_by   String?
+}
+
+model Notification {
+  id              String   @id @default(cuid())
+  recipient_email String
+  title           String
+  body            String
+  type            NotificationType
+  related_case_id String?
+  is_read         Boolean  @default(false)
+  created_date    DateTime @default(now())
+  updated_date    DateTime @updatedAt
+  created_by      String?
+}
+
+model OtpVerification {
+  id           String   @id @default(cuid())
+  phone        String
+  otp          String
+  expires_at   String
+  verified     Boolean  @default(false)
+  created_date DateTime @default(now())
+  updated_date DateTime @updatedAt
+  created_by   String?
+}
+
+model PanicAlert {
+  id                     String   @id @default(cuid())
+  location_lat           Float?
+  location_lng           Float?
+  status                 PanicStatus @default(triggered)
+  responder_email        String?
+  responder_name         String?
+  is_silent              Boolean  @default(false)
+  linked_case_id         String?
+  client_idempotency_key String?  @unique
+  created_date           DateTime @default(now())
+  updated_date           DateTime @updatedAt
+  created_by             String?
+}
+
+model Resource {
+  id             String   @id @default(cuid())
+  name           String
+  type           ResourceType
+  description    String?
+  phone          String?
+  whatsapp       String?
+  email          String?
+  website        String?
+  map_url        String?
+  document_url   String?
+  address        String?
+  district       String?
+  province       Province?
+  location_lat   Float?
+  location_lng   Float?
+  operating_hours String?
+  languages      String[]
+  is_active      Boolean  @default(true)
+  is_free        Boolean  @default(true)
+  created_date   DateTime @default(now())
+  updated_date   DateTime @updatedAt
+  created_by     String?
+}
+
+model ResponseUnit {
+  id                String   @id @default(cuid())
+  name              String
+  unit_type         ResponseUnitType
+  description       String?
+  contact_phone     String?
+  contact_email     String?
+  whatsapp          String?
+  address           String?
+  district          String?
+  province          Province?
+  coverage_area     String?
+  location_lat      Float?
+  location_lng      Float?
+  on_call_status    OnCallStatus @default(available)
+  operating_hours   String?
+  lead_contact_name String?
+  lead_contact_email String?
+  is_active         Boolean  @default(true)
+  notes             String?
+  created_date      DateTime @default(now())
+  updated_date      DateTime @updatedAt
+  created_by        String?
+}
+
+model StaffMessage {
+  id               String   @id @default(cuid())
+  sender_name      String?
+  sender_role      StaffRole?
+  message          String
+  related_case_id  String?
+  related_case_ref String?
+  created_date     DateTime @default(now())
+  updated_date     DateTime @updatedAt
+  created_by       String?
+}
+
+model TwoFactorCode {
+  id           String   @id @default(cuid())
+  user_email   String
+  code_hash    String
+  expires_at   String
+  consumed     Boolean  @default(false)
+  attempts     Int      @default(0)
+  created_date DateTime @default(now())
+  updated_date DateTime @updatedAt
+  created_by   String?
+}
+
+model WhatsAppSession {
+  id             String   @id @default(cuid())
+  phone          String
+  phone_masked   String?
+  step           WhatsAppStep @default(greeting)
+  draft          Json?
+  linked_case_id String?
+  is_active      Boolean  @default(true)
+  created_date   DateTime @default(now())
+  updated_date   DateTime @updatedAt
+  created_by     String?
+}

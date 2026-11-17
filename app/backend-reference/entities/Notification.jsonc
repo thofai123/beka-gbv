@@ -1,0 +1,82 @@
+{
+  "name": "Notification",
+  "type": "object",
+  "properties": {
+    "recipient_email": {
+      "type": "string",
+      "description": "Email of the recipient"
+    },
+    "title": {
+      "type": "string",
+      "description": "Notification title"
+    },
+    "body": {
+      "type": "string",
+      "description": "Notification body text"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "panic_alert",
+        "case_update",
+        "assignment",
+        "message",
+        "system"
+      ],
+      "description": "Type of notification"
+    },
+    "related_case_id": {
+      "type": "string",
+      "description": "ID of related case if applicable"
+    },
+    "is_read": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "recipient_email",
+    "title",
+    "body",
+    "type"
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "$or": [
+        {
+          "data.recipient_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.recipient_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "data.recipient_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

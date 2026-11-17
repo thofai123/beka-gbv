@@ -1,0 +1,42 @@
+{
+  "name": "OtpVerification",
+  "type": "object",
+  "properties": {
+    "phone": {
+      "type": "string",
+      "description": "Phone number in international format, e.g. +2609XXXXXXXX"
+    },
+    "otp": {
+      "type": "string",
+      "description": "6-digit OTP code"
+    },
+    "expires_at": {
+      "type": "string",
+      "description": "ISO timestamp when this OTP expires"
+    },
+    "verified": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "phone",
+    "otp",
+    "expires_at",
+    "verified"
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {},
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

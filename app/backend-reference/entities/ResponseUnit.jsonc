@@ -1,0 +1,137 @@
+{
+  "name": "ResponseUnit",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the response unit"
+    },
+    "unit_type": {
+      "type": "string",
+      "enum": [
+        "police",
+        "hospital",
+        "ngo",
+        "social_services",
+        "shelter",
+        "legal_aid",
+        "vsu",
+        "osc",
+        "other"
+      ],
+      "description": "Type of response unit"
+    },
+    "description": {
+      "type": "string",
+      "description": "Brief description of services offered"
+    },
+    "contact_phone": {
+      "type": "string",
+      "description": "Primary contact phone number"
+    },
+    "contact_email": {
+      "type": "string",
+      "description": "Primary contact email"
+    },
+    "whatsapp": {
+      "type": "string",
+      "description": "WhatsApp number"
+    },
+    "address": {
+      "type": "string",
+      "description": "Physical address"
+    },
+    "district": {
+      "type": "string",
+      "description": "District served"
+    },
+    "province": {
+      "type": "string",
+      "enum": [
+        "Lusaka",
+        "Copperbelt",
+        "Central",
+        "Eastern",
+        "Northern",
+        "Luapula",
+        "Western",
+        "Southern",
+        "North-Western",
+        "Muchinga"
+      ]
+    },
+    "coverage_area": {
+      "type": "string",
+      "description": "Areas/regions this unit covers"
+    },
+    "location_lat": {
+      "type": "number"
+    },
+    "location_lng": {
+      "type": "number"
+    },
+    "on_call_status": {
+      "type": "string",
+      "enum": [
+        "available",
+        "busy",
+        "off_duty"
+      ],
+      "default": "available",
+      "description": "Current on-call status"
+    },
+    "operating_hours": {
+      "type": "string",
+      "description": "e.g. 24/7, Mon-Fri 8-5"
+    },
+    "lead_contact_name": {
+      "type": "string",
+      "description": "Name of lead/manager"
+    },
+    "lead_contact_email": {
+      "type": "string",
+      "description": "Email of lead user (links to User entity)"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "notes": {
+      "type": "string",
+      "description": "Internal notes"
+    }
+  },
+  "required": [
+    "name",
+    "unit_type"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "data.is_active": true
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

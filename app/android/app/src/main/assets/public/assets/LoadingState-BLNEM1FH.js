@@ -1,0 +1,1 @@
+import{j as r}from"./index-COKE6P8V.js";function o({className:e="flex items-center justify-center h-64",dark:t=!1}){return r.jsx("div",{className:e,children:r.jsx("div",{className:`w-8 h-8 border-4 rounded-full animate-spin ${t?"border-white/10 border-t-orange-500":"border-primary/20 border-t-primary"}`})})}export{o as L};

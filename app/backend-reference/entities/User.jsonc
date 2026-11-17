@@ -1,0 +1,84 @@
+{
+  "name": "User",
+  "type": "object",
+  "properties": {
+    "role": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "responder",
+        "survivor",
+        "user"
+      ],
+      "default": "survivor"
+    },
+    "first_name": {
+      "type": "string"
+    },
+    "last_name": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "phone_verified": {
+      "type": "boolean",
+      "default": false
+    },
+    "emergency_title": {
+      "type": "string",
+      "default": "I need help"
+    },
+    "profile_picture": {
+      "type": "string"
+    },
+    "specialization": {
+      "type": "string",
+      "enum": [
+        "general",
+        "counseling",
+        "legal",
+        "medical",
+        "shelter"
+      ],
+      "default": "general"
+    },
+    "is_available": {
+      "type": "boolean",
+      "default": true
+    },
+    "location_lat": {
+      "type": "number"
+    },
+    "location_lng": {
+      "type": "number"
+    },
+    "location_updated_at": {
+      "type": "string"
+    },
+    "notify_in_app": {
+      "type": "boolean",
+      "default": true
+    },
+    "notify_sms": {
+      "type": "boolean",
+      "default": true
+    },
+    "notify_push": {
+      "type": "boolean",
+      "default": true
+    },
+    "privacy_share_location": {
+      "type": "boolean",
+      "default": true
+    },
+    "privacy_share_case": {
+      "type": "boolean",
+      "default": true
+    },
+    "privacy_allow_followup": {
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

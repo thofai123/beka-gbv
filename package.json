@@ -1,0 +1,22 @@
+{
+  "name": "beka-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BEKA — GBV emergency response platform (landing + app + backend)",
+  "workspaces": [
+    "app",
+    "backend"
+  ],
+  "scripts": {
+    "install:all": "npm install && npm --prefix landing ci",
+    "db:up": "docker compose up -d db",
+    "db:migrate": "npm --workspace backend run prisma:migrate:dev",
+    "db:seed": "npm --workspace backend run db:seed",
+    "dev:backend": "npm --workspace backend run dev",
+    "dev:app": "npm --workspace app run dev",
+    "dev:landing": "npm --prefix landing run dev",
+    "build": "npm --workspace app run build && npm --prefix landing run build",
+    "start:backend": "npm --workspace backend run start",
+    "start:landing": "npm --prefix landing run start"
+  }
+}

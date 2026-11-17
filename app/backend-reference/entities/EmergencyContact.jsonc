@@ -1,0 +1,48 @@
+{
+  "name": "EmergencyContact",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "ID of the survivor who owns this contact"
+    },
+    "name": {
+      "type": "string",
+      "description": "Contact's full name"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Phone number with country code (e.g. +260...)"
+    },
+    "relationship": {
+      "type": "string",
+      "description": "e.g. Mother, Sibling, Friend"
+    },
+    "priority": {
+      "type": "number",
+      "description": "1 = Primary, 2 = Secondary, etc.",
+      "default": 1
+    },
+    "notify_location": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether to share GPS coordinates with this contact during escalation"
+    }
+  },
+  "required": [
+    "name",
+    "phone"
+  ],
+  "rls": {
+    "create": true,
+    "read": {
+      "created_by": "{{user.email}}"
+    },
+    "update": {
+      "created_by": "{{user.email}}"
+    },
+    "delete": {
+      "created_by": "{{user.email}}"
+    }
+  }
+}

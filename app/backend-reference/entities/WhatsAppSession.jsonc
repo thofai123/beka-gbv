@@ -1,0 +1,57 @@
+{
+  "name": "WhatsAppSession",
+  "type": "object",
+  "properties": {
+    "phone": {
+      "type": "string",
+      "description": "Survivor WhatsApp number (E.164 format)"
+    },
+    "phone_masked": {
+      "type": "string",
+      "description": "Masked version stored for follow-up reference"
+    },
+    "step": {
+      "type": "string",
+      "enum": [
+        "greeting",
+        "incident_type",
+        "description",
+        "location",
+        "anonymous_choice",
+        "name",
+        "submitted"
+      ],
+      "default": "greeting"
+    },
+    "draft": {
+      "type": "object",
+      "description": "Partial intake fields collected so far",
+      "additionalProperties": true
+    },
+    "linked_case_id": {
+      "type": "string"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "phone",
+    "step"
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {},
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

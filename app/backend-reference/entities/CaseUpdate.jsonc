@@ -1,0 +1,74 @@
+{
+  "name": "CaseUpdate",
+  "type": "object",
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "description": "ID of the related case"
+    },
+    "update_type": {
+      "type": "string",
+      "enum": [
+        "status_change",
+        "note",
+        "assignment",
+        "risk_change",
+        "resolution"
+      ],
+      "description": "Type of update"
+    },
+    "note": {
+      "type": "string"
+    },
+    "old_value": {
+      "type": "string"
+    },
+    "new_value": {
+      "type": "string"
+    },
+    "updated_by_name": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "case_id",
+    "update_type"
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": {
+              "$in": [
+                "admin",
+                "responder"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

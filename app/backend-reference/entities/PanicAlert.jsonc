@@ -1,0 +1,90 @@
+{
+  "name": "PanicAlert",
+  "type": "object",
+  "properties": {
+    "location_lat": {
+      "type": "number"
+    },
+    "location_lng": {
+      "type": "number"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "triggered",
+        "acknowledged",
+        "responded",
+        "resolved",
+        "escalated"
+      ],
+      "default": "triggered"
+    },
+    "responder_email": {
+      "type": "string"
+    },
+    "responder_name": {
+      "type": "string"
+    },
+    "is_silent": {
+      "type": "boolean",
+      "default": false
+    },
+    "linked_case_id": {
+      "type": "string"
+    },
+    "client_idempotency_key": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "status"
+  ],
+  "rls": {
+    "create": false,
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "data.responder_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": {
+              "$in": [
+                "admin",
+                "responder"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "data.responder_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": {
+              "$in": [
+                "admin",
+                "responder"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

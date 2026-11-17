@@ -1,0 +1,204 @@
+{
+  "name": "Case",
+  "type": "object",
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "description": "Unique case identifier (e.g. GBV-2024-0001)"
+    },
+    "incident_type": {
+      "type": "string",
+      "enum": [
+        "physical_violence",
+        "sexual_violence",
+        "emotional_abuse",
+        "economic_abuse",
+        "stalking",
+        "trafficking",
+        "forced_marriage",
+        "other"
+      ]
+    },
+    "description": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "received",
+        "dispatched",
+        "acknowledged",
+        "in_progress",
+        "resolved",
+        "escalated",
+        "failed",
+        "reported",
+        "assigned",
+        "closed"
+      ],
+      "default": "received",
+      "description": "State machine: received \u2192 dispatched \u2192 acknowledged \u2192 in_progress \u2192 resolved (or escalated/failed)"
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "default": "medium"
+    },
+    "is_anonymous": {
+      "type": "boolean",
+      "default": false
+    },
+    "reporter_email": {
+      "type": "string"
+    },
+    "reporter_user_id": {
+      "type": "string"
+    },
+    "survivor_name": {
+      "type": "string"
+    },
+    "survivor_contact": {
+      "type": "string"
+    },
+    "location_lat": {
+      "type": "number"
+    },
+    "location_lng": {
+      "type": "number"
+    },
+    "location_captured_at": {
+      "type": "string"
+    },
+    "location_description": {
+      "type": "string"
+    },
+    "assigned_responder": {
+      "type": "string"
+    },
+    "assigned_responder_name": {
+      "type": "string"
+    },
+    "assigned_unit_id": {
+      "type": "string"
+    },
+    "assigned_unit_name": {
+      "type": "string"
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "ai_summary": {
+      "type": "string"
+    },
+    "resolution_notes": {
+      "type": "string"
+    },
+    "resolved_at": {
+      "type": "string"
+    },
+    "acknowledged_at": {
+      "type": "string"
+    },
+    "acknowledged_by": {
+      "type": "string"
+    },
+    "dispatched_at": {
+      "type": "string"
+    },
+    "escalation_count": {
+      "type": "number",
+      "default": 0
+    },
+    "report_source": {
+      "type": "string",
+      "enum": [
+        "report",
+        "panic_alert"
+      ],
+      "default": "report"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "app",
+        "web",
+        "whatsapp",
+        "ussd",
+        "sms"
+      ],
+      "default": "app",
+      "description": "Channel through which the case was opened"
+    },
+    "client_idempotency_key": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "incident_type",
+    "description",
+    "status",
+    "risk_level"
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "data.reporter_email": "{{user.email}}"
+        },
+        {
+          "data.assigned_responder": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "responder"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "data.reporter_email": "{{user.email}}"
+        },
+        {
+          "data.assigned_responder": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "responder"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
