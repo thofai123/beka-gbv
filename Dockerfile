@@ -14,7 +14,7 @@ RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /v
 WORKDIR /srv/beka
 
 COPY backend/package*.json ./backend/
-RUN cd backend && npm ci --omit=dev
+RUN cd backend && npm install --omit=dev
 
 COPY backend/ ./backend/
 RUN cd backend && npx prisma generate
