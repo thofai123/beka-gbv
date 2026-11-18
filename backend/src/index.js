@@ -64,8 +64,19 @@ if (fs.existsSync(distDir)) {
 app.use(attachUser);
 
 // API Router...
-// (your API routes here)
+// --- SERVE FRONTEND STATIC ASSETS ---
+const frontendDistPath = path.resolve('/srv/beka/app/dist');
+app.use(express.static(frontendDistPath));
 
+// Catch-all route to support React Router (SPA fallback)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(frontendDistPath, 'index.html'));
+});
+
+// 404 Handler (must be after static routes so API 404s still work)
+app.use((req, res) =>
+  res.status(404).json({ message: `No route: ${req.method} ${req.path}` })
+);
 // --- SERVE FRONTEND STATIC ASSETS ---
 const frontendDistPath = path.join(__dirname, '../app/dist');
 app.use(express.static(frontendDistPath));
