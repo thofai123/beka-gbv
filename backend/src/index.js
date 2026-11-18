@@ -91,3 +91,8 @@ app.use((err, _req, res, _next) => {
   const status = err.status || 500;
   res.status(status).json({ message: err.message || "Internal server error" });
 });
+
+// START SERVER
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`BEKA server listening on http://0.0.0.0:${PORT}`);
+});
