@@ -74,7 +74,14 @@ app.use((err, _req, res, _next) => {
   const status = err.status || 500;
   res.status(status).json({ message: err.message || "Internal server error" });
 });
+// --- SERVE FRONTEND STATIC ASSETS ---
+const frontendDistPath = path.join(__dirname, '../../app/dist');
+app.use(express.static(frontendDistPath));
 
+// Catch-all route to support React Router (SPA fallback)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(frontendDistPath, 'index.html'));
+});
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`BEKA server listening on http://0.0.0.0:${PORT}`);
 });
