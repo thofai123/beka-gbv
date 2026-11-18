@@ -31,7 +31,7 @@ const CATEGORY_KEYS = [
   "legal_aid",
   "emergency_response",
 ];
-const RESOURCES_CACHE_KEY = "safeguard_resources_cache_v4";
+const RESOURCES_CACHE_KEY = "safeguard_resources_cache_v5";
 
 function mergeWithBuiltins(apiItems = []) {
   const validApi = Array.isArray(apiItems) ? apiItems : [];
@@ -93,7 +93,7 @@ export default function Resources() {
 
   const load = async () => {
     try {
-      ["safeguard_resources_cache_v2", "safeguard_resources_cache_v3"].forEach((k) =>
+      ["safeguard_resources_cache_v2", "safeguard_resources_cache_v3", "safeguard_resources_cache_v4"].forEach((k) =>
         localStorage.removeItem(k)
       );
       const cached = JSON.parse(localStorage.getItem(RESOURCES_CACHE_KEY) || "[]");

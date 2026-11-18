@@ -2,22 +2,39 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiClient } from "@/api/client";
-import { Eye, EyeOff, Loader2, User } from "lucide-react";
+import { Eye, EyeOff, Loader2, User, CheckCircle2 } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 const STEPS = { FORM: 0, OTP: 1 };
-
 const ACCENT = "#E84B1D";
 
-function Field({ label, children }) {
+function Field({ label, htmlFor, children }) {
   return (
     <div style={{ marginBottom: "18px" }}>
-      <label style={{ display: "block", fontSize: "12px", color: "rgba(255,255,255,0.45)", marginBottom: "6px", fontWeight: 500 }}>
+      <label
+        htmlFor={htmlFor}
+        style={{ display: "block", fontSize: "12px", color: "rgba(255,255,255,0.45)", marginBottom: "6px", fontWeight: 500 }}
+      >
         {label}
       </label>
       {children}
     </div>
   );
+}
+
+async function saveToGooglePasswordManager({ email, password, name }) {
+  try {
+    if (typeof window !== "undefined" && window.PasswordCredential && navigator.credentials) {
+      const cred = new window.PasswordCredential({
+        id: email,
+        password,
+        name: name || email,
+      });
+      await navigator.credentials.store(cred);
+    }
+  } catch {
+    // Ignore on browsers that don't support PasswordCredential
+  }
 }
 
 export default function Register() {
@@ -32,20 +49,41 @@ export default function Register() {
   const [agreed, setAgreed] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [error, setError] = useState("");
+  const [infoMessage, setInfoMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+
+  const normalizedEmail = email.trim().toLowerCase();
 
   const handleRegister = async (e) => {
     e.preventDefault();
     setError("");
+    setInfoMessage("");
     if (!username.trim()) { setError("Please choose a username"); return; }
     if (!name.trim()) { setError("Please enter your full name"); return; }
-    if (!email || !email.includes("@")) { setError("Please enter a valid email address"); return; }
+    if (!normalizedEmail || !normalizedEmail.includes("@")) { setError("Please enter a valid email address"); return; }
     if (password.length < 8) { setError("Password must be at least 8 characters"); return; }
     if (password !== confirmPassword) { setError("Passwords do not match"); return; }
     if (!agreed) { setError("Please agree to the Terms and Privacy Policy"); return; }
+
     setLoading(true);
     try {
-      await apiClient.auth.register({ email, password, full_name: name });
+      const res = await apiClient.auth.register({
+        email: normalizedEmail,
+        password,
+        full_name: name.trim(),
+      });
+      setEmail(normalizedEmail);
+      await saveToGooglePasswordManager({
+        email: normalizedEmail,
+        password,
+        name: name.trim(),
+      });
+      if (res && res.otp_sent === false) {
+        setError(res.email_error || "Account created, but verification email could not be sent. Tap Resend below.");
+      } else {
+        setInfoMessage(`Verification code automatically sent to ${normalizedEmail}`);
+      }
       setStep(STEPS.OTP);
     } catch (err) {
       setError(err.message || "Registration failed");
@@ -54,13 +92,14 @@ export default function Register() {
     }
   };
 
-  const handleVerify = async () => {
+  const handleVerify = async (e) => {
+    if (e) e.preventDefault();
     setError("");
     setLoading(true);
     try {
-      const result = await apiClient.auth.verifyOtp({ email, otpCode });
+      const result = await apiClient.auth.verifyOtp({ email: normalizedEmail, otpCode });
       if (result?.access_token) apiClient.auth.setToken(result.access_token);
-      window.location.href = "/";
+      window.location.href = "/beka/";
     } catch (err) {
       setError(err.message || "Invalid verification code");
     } finally {
@@ -69,9 +108,18 @@ export default function Register() {
   };
 
   const handleResend = async () => {
-    try { await apiClient.auth.resendOtp(email); } catch (err) { setError(err.message); }
+    setError("");
+    setInfoMessage("");
+    setResending(true);
+    try {
+      await apiClient.auth.resendOtp(normalizedEmail);
+      setInfoMessage(`A new 6-digit code was sent to ${normalizedEmail}`);
+    } catch (err) {
+      setError(err.message || "Failed to resend code");
+    } finally {
+      setResending(false);
+    }
   };
-
 
   const inputStyle = {
     width: "100%",
@@ -154,12 +202,14 @@ export default function Register() {
                 <h1 style={{ fontSize: "26px", fontWeight: 800, color: "#fff", marginBottom: "4px" }}>Create account</h1>
                 <p style={{ fontSize: "14px", color: "rgba(255,255,255,0.45)", marginBottom: "24px" }}>Join BEKA to stay safe and supported</p>
 
-                <form onSubmit={handleRegister}>
-                  <Field label="Username">
+                <form onSubmit={handleRegister} method="post" action="/beka/register">
+                  <Field label="Username" htmlFor="reg-username">
                     <input
+                      id="reg-username"
+                      name="nickname"
                       type="text"
                       autoFocus
-                      autoComplete="username"
+                      autoComplete="nickname"
                       placeholder="yourname"
                       value={username}
                       onChange={(e) => { setUsername(e.target.value); setError(""); }}
@@ -169,8 +219,10 @@ export default function Register() {
                     />
                   </Field>
 
-                  <Field label="Full name">
+                  <Field label="Full name" htmlFor="reg-name">
                     <input
+                      id="reg-name"
+                      name="name"
                       type="text"
                       autoComplete="name"
                       placeholder="Your full name"
@@ -182,10 +234,15 @@ export default function Register() {
                     />
                   </Field>
 
-                  <Field label="Email address">
+                  <Field label="Email address" htmlFor="reg-email">
                     <input
+                      id="reg-email"
+                      name="email"
                       type="email"
-                      autoComplete="email"
+                      autoComplete="username"
+                      inputMode="email"
+                      autoCapitalize="none"
+                      spellCheck={false}
                       placeholder="you@example.com"
                       value={email}
                       onChange={(e) => { setEmail(e.target.value); setError(""); }}
@@ -195,9 +252,11 @@ export default function Register() {
                     />
                   </Field>
 
-                  <Field label="Password">
+                  <Field label="Password" htmlFor="reg-password">
                     <div style={{ position: "relative" }}>
                       <input
+                        id="reg-password"
+                        name="password"
                         type={showPassword ? "text" : "password"}
                         autoComplete="new-password"
                         placeholder="Min. 8 characters"
@@ -215,9 +274,11 @@ export default function Register() {
                     </div>
                   </Field>
 
-                  <Field label="Confirm password">
+                  <Field label="Confirm password" htmlFor="reg-confirm-password">
                     <div style={{ position: "relative" }}>
                       <input
+                        id="reg-confirm-password"
+                        name="confirm-password"
                         type={showConfirm ? "text" : "password"}
                         autoComplete="new-password"
                         placeholder="Re-enter password"
@@ -284,10 +345,9 @@ export default function Register() {
                       boxShadow: "0 10px 28px rgba(232,75,29,0.4)",
                     }}
                   >
-                    {loading ? <><Loader2 size={18} className="animate-spin" /> Creating account...</> : "Sign up"}
+                    {loading ? <><Loader2 size={18} className="animate-spin" /> Creating account &amp; sending code...</> : "Sign up"}
                   </button>
                 </form>
-
               </motion.div>
             )}
 
@@ -318,53 +378,68 @@ export default function Register() {
                 </div>
 
                 <h2 style={{ fontSize: "22px", fontWeight: 800, color: "#fff", marginBottom: "8px" }}>Verify your email</h2>
-                <p style={{ fontSize: "14px", color: "rgba(255,255,255,0.5)", marginBottom: "24px" }}>
-                  We sent a 6-digit code to<br />
-                  <span style={{ color: "#fff", fontWeight: 600 }}>{email}</span>
+                <p style={{ fontSize: "14px", color: "rgba(255,255,255,0.55)", marginBottom: "20px" }}>
+                  Enter the 6-digit code sent to<br />
+                  <span style={{ color: "#fff", fontWeight: 600 }}>{normalizedEmail}</span>
                 </p>
+
+                {infoMessage && !error && (
+                  <p style={{ color: "#4ade80", fontSize: "12px", marginBottom: "14px", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                    <CheckCircle2 size={14} /> {infoMessage}
+                  </p>
+                )}
 
                 {error && <p style={{ color: "#ff7a5c", fontSize: "13px", marginBottom: "16px" }}>{error}</p>}
 
-                <div className="mb-6 flex justify-center [&_input]:bg-white/10 [&_input]:border-white/20 [&_input]:text-white [&_input]:text-xl [&_input]:font-bold [&_input]:rounded-xl">
-                  <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode} autoFocus autoComplete="one-time-code">
-                    <InputOTPGroup className="gap-2">
-                      <InputOTPSlot index={0} />
-                      <InputOTPSlot index={1} />
-                      <InputOTPSlot index={2} />
-                      <InputOTPSlot index={3} />
-                      <InputOTPSlot index={4} />
-                      <InputOTPSlot index={5} />
-                    </InputOTPGroup>
-                  </InputOTP>
-                </div>
+                <form onSubmit={handleVerify}>
+                  <div className="mb-6 flex justify-center [&_input]:bg-white/10 [&_input]:border-white/20 [&_input]:text-white [&_input]:text-xl [&_input]:font-bold [&_input]:rounded-xl">
+                    <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode} autoFocus autoComplete="one-time-code">
+                      <InputOTPGroup className="gap-2">
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
 
-                <button
-                  onClick={handleVerify}
-                  disabled={loading || otpCode.length < 6}
-                  style={{
-                    width: "100%",
-                    height: "52px",
-                    borderRadius: "14px",
-                    background: "linear-gradient(135deg, #E84B1D, #c43a10)",
-                    color: "#fff",
-                    fontWeight: 700,
-                    fontSize: "15px",
-                    border: "none",
-                    cursor: (loading || otpCode.length < 6) ? "not-allowed" : "pointer",
-                    opacity: (loading || otpCode.length < 6) ? 0.6 : 1,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "8px",
-                    boxShadow: "0 10px 28px rgba(232,75,29,0.4)",
-                  }}
-                >
-                  {loading ? <><Loader2 size={18} className="animate-spin" /> Verifying...</> : "Verify & Continue"}
-                </button>
+                  <button
+                    type="submit"
+                    disabled={loading || otpCode.length < 6}
+                    style={{
+                      width: "100%",
+                      height: "52px",
+                      borderRadius: "14px",
+                      background: "linear-gradient(135deg, #E84B1D, #c43a10)",
+                      color: "#fff",
+                      fontWeight: 700,
+                      fontSize: "15px",
+                      border: "none",
+                      cursor: (loading || otpCode.length < 6) ? "not-allowed" : "pointer",
+                      opacity: (loading || otpCode.length < 6) ? 0.6 : 1,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "8px",
+                      boxShadow: "0 10px 28px rgba(232,75,29,0.4)",
+                    }}
+                  >
+                    {loading ? <><Loader2 size={18} className="animate-spin" /> Verifying...</> : "Verify & Continue"}
+                  </button>
+                </form>
 
                 <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.5)", marginTop: "18px" }}>
                   Didn't receive it?{" "}
-                  <button onClick={handleResend} style={{ color: ACCENT, fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}>Resend</button>
+                  <button
+                    type="button"
+                    onClick={handleResend}
+                    disabled={resending}
+                    style={{ color: ACCENT, fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}
+                  >
+                    {resending ? "Sending..." : "Resend"}
+                  </button>
                 </p>
               </motion.div>
             )}

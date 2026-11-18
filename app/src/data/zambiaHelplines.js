@@ -67,7 +67,6 @@ export const BUILTIN_ZAMBIA_HELPLINES = [
     type: "legal_aid",
     phone: "+260 211 256454",
     secondary_phone: "+260 977 123456",
-    whatsapp: "+260 766 881526",
     district: "National (All Provinces)",
     operating_hours: "Mon–Fri, 8:00 AM – 5:00 PM",
     is_active: true,

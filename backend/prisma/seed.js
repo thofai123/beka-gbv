@@ -86,7 +86,6 @@ const DEPARTMENT_HELPLINES = [
     description:
       "For free or subsidized legal assistance in Zambia, contact the Legal Aid Board of Zambia at +260 211 256454, via their hotline at +260 977 123456, or on WhatsApp at +260 766 881526. Operates primarily during standard business hours (Monday to Friday, 8:00 AM – 5:00 PM).",
     phone: "+260 211 256454",
-    whatsapp: "+260 766 881526",
     district: "National (All Provinces)",
     province: "Lusaka",
     operating_hours: "Mon–Fri, 8:00 AM – 5:00 PM",
@@ -100,7 +99,6 @@ const DEPARTMENT_HELPLINES = [
     description:
       "Direct mobile hotline (+260 977 123456) and WhatsApp desk (+260 766 881526) for free or subsidized legal representation and case guidance.",
     phone: "+260 977 123456",
-    whatsapp: "+260 766 881526",
     district: "National (All Provinces)",
     province: "Lusaka",
     operating_hours: "Mon–Fri, 8:00 AM – 5:00 PM",

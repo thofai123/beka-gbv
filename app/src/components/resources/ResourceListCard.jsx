@@ -59,7 +59,7 @@ export default function ResourceListCard({ resource, isAdmin, onEdit, onDelete, 
     resource.tertiary_phone,
   ].filter(Boolean);
 
-  const hasWhatsapp = !!resource.whatsapp;
+  const hasWhatsapp = !!resource.whatsapp && resource.type !== "legal_aid";
   const hasWebsite = !!resource.website && !resource.is_builtin;
   const hasDocument = !!resource.document_url && !resource.is_builtin;
   const showDescription = !!resource.description && !resource.is_builtin;
