@@ -50,30 +50,27 @@ app.use("/", api);
 // Serve uploaded evidence files
 app.use("/uploads", express.static(UPLOAD_DIR));
 
-// Serve compiled React SPA in production when app/dist exists
-const distDir = path.resolve(__dirname, "..", "..", "app", "dist");
-if (fs.existsSync(distDir)) {
-  app.use("/beka", express.static(distDir));
-  app.use(express.static(distDir));
+// --- SERVE FRONTEND STATIC ASSETS (Unified Absolute Path) ---
+const frontendDistPath = path.resolve('/srv/beka/app/dist');
+if (fs.existsSync(frontendDistPath)) {
+  app.use("/beka", express.static(frontendDistPath));
+  app.use(express.static(frontendDistPath));
 
-  app.get("/", (_req, res) => res.redirect(302, "/beka/"));
   app.get("/beka/*", (_req, res) => {
-    res.sendFile(path.join(distDir, "index.html"));
+    res.sendFile(path.join(frontendDistPath, "index.html"));
   });
 }
-app.use(attachUser);
 
-// API Router...
-// --- SERVE FRONTEND STATIC ASSETS ---
-const frontendDistPath = path.resolve('/srv/beka/app/dist');
-app.use(express.static(frontendDistPath));
-
-// Catch-all route to support React Router (SPA fallback)
+// Catch-all route for SPA fallback (must be before 404 handler)
 app.get('*', (req, res) => {
-  res.sendFile(path.join(frontendDistPath, 'index.html'));
+  if (fs.existsSync(path.join(frontendDistPath, 'index.html'))) {
+    res.sendFile(path.join(frontendDistPath, 'index.html'));
+  } else {
+    res.status(404).json({ message: `No route: ${req.method} ${req.path}` });
+  }
 });
 
-// 404 Handler (must be after static routes so API 404s still work)
+// 404 Handler
 app.use((req, res) =>
   res.status(404).json({ message: `No route: ${req.method} ${req.path}` })
 );
@@ -86,7 +83,7 @@ app.use((err, _req, res, _next) => {
   res.status(status).json({ message: err.message || "Internal server error" });
 });
 
-// START SERVER
+// START SERVER (Ensures port opens cleanly for Render)
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`BEKA server listening on http://0.0.0.0:${PORT}`);
 });
