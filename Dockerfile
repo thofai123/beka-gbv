@@ -2,7 +2,7 @@
 FROM node:20-slim AS frontend-builder
 WORKDIR /build/app
 COPY app/package*.json ./
-RUN npm ci
+RUN npm install
 COPY app/ ./
 ARG VITE_API_BASE_URL=/api
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
