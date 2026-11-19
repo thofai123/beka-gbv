@@ -15,6 +15,7 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import { useLanguage } from "@/lib/LanguageContext";
+import { useAuth } from "@/lib/AuthContext";
 import SettingsSection from "../components/settings/SettingsSection";
 import SettingsAccount from "../components/settings/SettingsAccount";
 import SettingsHelp from "../components/settings/SettingsHelp";
@@ -23,6 +24,8 @@ import SettingsLegal from "../components/settings/SettingsLegal";
 export default function SettingsPage() {
   const { toast } = useToast();
   const { t } = useLanguage();
+  const { logout: authLogout } = useAuth();
+  const [loggingOut, setLoggingOut] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -131,6 +134,36 @@ export default function SettingsPage() {
     setSaving(false);
     toast({ title: "Settings saved", description: "Your changes were saved successfully." });
   };
+
+  const handleLogout = () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    setTimeout(() => {
+      authLogout(false);
+      window.location.replace("/beka/login");
+    }, 650);
+  };
+
+  if (loggingOut) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/95 backdrop-blur-md text-white px-6">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.92 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.25 }}
+          className="flex flex-col items-center text-center space-y-4"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-orange-500/15 border border-orange-500/30 flex items-center justify-center">
+            <Loader2 className="w-7 h-7 text-orange-400 animate-spin" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">Logging out securely...</h2>
+            <p className="text-xs text-zinc-400 mt-1">Clearing session data from this device</p>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -344,7 +377,7 @@ export default function SettingsPage() {
           <Button
             type="button"
             variant="outline"
-            onClick={() => UserService.logout()}
+            onClick={handleLogout} disabled={loggingOut}
             className="gap-2 border-destructive/40 text-destructive hover:bg-destructive hover:text-destructive-foreground"
           >
             <LogOut className="w-4 h-4" /> Log Out

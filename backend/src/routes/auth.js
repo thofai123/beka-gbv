@@ -209,8 +209,11 @@ router.post("/reset-password/request", async (req, res, next) => {
   try {
     const email = normalizeEmail(req.body?.email);
     const user = await prisma.user.findUnique({ where: { email } });
-    const rl = rateLimit(`reset:${email}`, 3, 15 * 60 * 1000);
+    const rl = rateLimit(`reset:${email}`, 8, 15 * 60 * 1000);
     if (!rl.ok) return res.status(429).json({ message: "Too many requests. Please wait a few minutes and try again." });
+    if (!user) {
+      return res.status(404).json({ message: "No account found with this email address." });
+    }
     if (user) {
       await prisma.twoFactorCode.updateMany({ where: { user_email: email, consumed: false, created_by: "password-reset" }, data: { consumed: true } });
       const code = randomCode();
