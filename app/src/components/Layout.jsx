@@ -41,7 +41,7 @@ export default function Layout({ children }) {
   const [refreshing, setRefreshing] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const isSubPage = location.pathname !== "/beka/" && location.pathname !== "/" && location.pathname !== "/admin";
+  const isSubPage = (location.pathname !== "/beka/" && location.pathname !== "/beka" && location.pathname !== "/" && location.pathname !== "/admin") || Boolean(location.search);
   const queryClient = useQueryClient();
   const touchStartY = useRef(0);
   const mainRef = useRef(null);

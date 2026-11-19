@@ -21,6 +21,7 @@ import StatusBadge from "../components/StatusBadge";
 import SkeletonCard from "../components/SkeletonCard";
 import CaseTimeline from "../components/CaseTimeline";
 import moment from "moment";
+import AdminRespondPanel from "../components/cases/AdminRespondPanel";
 
 const incidentLabels = {
   physical_violence: "Physical Violence",
@@ -353,9 +354,43 @@ export default function CaseDetail() {
           <RiskBadge level={caseData.risk_level} />
         </div>
         <p className="text-xs text-muted-foreground mt-1.5">
-          Reported {relativeTime(caseData.created_date)}
+          Filed: {caseData.created_date ? moment(caseData.created_date).format("MMM D, YYYY · HH:mm") : "—"} ({relativeTime(caseData.created_date)})
         </p>
+        {caseData.resolved_at && (
+          <p className="text-xs text-emerald-500 font-medium mt-0.5">
+            Resolved: {moment(caseData.resolved_at).format("MMM D, YYYY · HH:mm")}
+          </p>
+        )}
       </div>
+
+      {/* Admin Case Controls (Pending Review / Mark Resolved / Message Survivor) */}
+      {isStaff && (
+        <AdminRespondPanel
+          caseData={caseData}
+          user={user}
+          onUpdate={loadCase}
+          onOpenChat={() => setShowMessageBox((v) => !v)}
+        />
+      )}
+
+      {isStaff && showMessageBox && (
+        <div className={cardClass + " space-y-2.5"}>
+          <SectionLabel>Message Survivor</SectionLabel>
+          <Textarea
+            value={messageText}
+            onChange={(e) => setMessageText(e.target.value)}
+            placeholder="Write an update or message for the survivor..."
+            rows={3}
+          />
+          <div className="flex justify-end gap-2">
+            <Button size="sm" variant="ghost" onClick={() => setShowMessageBox(false)}>Cancel</Button>
+            <Button size="sm" onClick={sendMessage} disabled={sendingMessage || !messageText.trim()} className="gap-1.5">
+              {sendingMessage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+              Send Message
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Incident Details */}
       <div className={cardClass}>

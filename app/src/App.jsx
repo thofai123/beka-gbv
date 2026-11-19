@@ -205,6 +205,14 @@ function App() {
               <Route path="/" element={<Navigate to="/beka/" replace />} />
               <Route path="/admin" element={<AdminApp />} />
               <Route path="/beka/*" element={<AuthenticatedApp />} />
+              <Route path="/cases" element={<Navigate to="/beka/cases" replace />} />
+              <Route path="/cases/:id" element={<Navigate to="/beka/cases" replace />} />
+              <Route path="/alerts-map" element={<Navigate to="/beka/alerts-map" replace />} />
+              <Route path="/team" element={<Navigate to="/beka/team" replace />} />
+              <Route path="/analytics" element={<Navigate to="/beka/analytics" replace />} />
+              <Route path="/response-units" element={<Navigate to="/beka/response-units" replace />} />
+              <Route path="/security" element={<Navigate to="/beka/security" replace />} />
+              <Route path="*" element={<Navigate to="/beka/" replace />} />
             </Routes>
             <Toaster />
           </Router>
