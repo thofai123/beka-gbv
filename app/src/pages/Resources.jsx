@@ -31,17 +31,33 @@ const CATEGORY_KEYS = [
   "legal_aid",
   "emergency_response",
 ];
-const RESOURCES_CACHE_KEY = "safeguard_resources_cache_v6";
+const RESOURCES_CACHE_KEY = "safeguard_resources_cache_v7";
+
+function normalizePhoneKey(num) {
+  return String(num || "").replace(/[^0-9]/g, "");
+}
 
 function mergeWithBuiltins(apiItems = []) {
   const validApi = Array.isArray(apiItems) ? apiItems : [];
-  const seen = new Set(
-    validApi.map((item) => `${item.type}::${(item.name || "").trim().toLowerCase()}`)
-  );
-  const extras = BUILTIN_ZAMBIA_HELPLINES.filter(
-    (b) => !seen.has(`${b.type}::${b.name.trim().toLowerCase()}`)
-  );
-  return [...validApi, ...extras];
+  const combined = [...BUILTIN_ZAMBIA_HELPLINES, ...validApi];
+  const seenName = new Set();
+  const seenPhoneByType = new Set();
+  const result = [];
+
+  for (const item of combined) {
+    const type = item.type || "gbv_support";
+    const nameKey = `${type}::${(item.name || "").trim().toLowerCase()}`;
+    const primaryDigits = normalizePhoneKey(item.phone);
+    const phoneKey = primaryDigits ? `${type}::${primaryDigits}` : "";
+
+    if (seenName.has(nameKey)) continue;
+    if (phoneKey && seenPhoneByType.has(phoneKey)) continue;
+
+    seenName.add(nameKey);
+    if (phoneKey) seenPhoneByType.add(phoneKey);
+    result.push(item);
+  }
+  return result;
 }
 
 export default function Resources() {

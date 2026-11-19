@@ -87,7 +87,7 @@ export default function Layout({ children }) {
             {isSubPage && (
               <button
                 onClick={() => {
-                  if (window.history.length > 1) navigate(-1);
+                  if (window.history.state && window.history.state.idx > 0) navigate(-1);
                   else navigate("/beka/");
                 }}
                 aria-label="Back"

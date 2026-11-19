@@ -32,6 +32,7 @@ export default function ForgotPassword() {
       icon={Mail}
       title="Reset password"
       subtitle="We'll email you a 6-digit code"
+      backTo="/beka/login"
       footer={
         <Link to="/beka/login" className="text-primary font-medium hover:underline">
           <ArrowLeft className="w-3 h-3 inline mr-1" />Back to log in

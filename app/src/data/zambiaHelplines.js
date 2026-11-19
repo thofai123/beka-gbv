@@ -1,25 +1,13 @@
 export const BUILTIN_ZAMBIA_HELPLINES = [
-  // VSU (Victim Support Unit) Tab
+  // VSU (Victim Support Unit) Tab — Single consolidated card
   {
     id: "builtin-vsu-national",
-    name: "Zambia Police Victim Support Unit (VSU) — National Desk",
+    name: "Zambia Police Victim Support Unit (VSU)",
     type: "vsu",
     phone: "991",
     secondary_phone: "0211-220006",
     district: "National (All Police Stations)",
     operating_hours: "24/7 Toll-Free & Desk",
-    is_active: true,
-    is_free: true,
-    is_builtin: true,
-  },
-  {
-    id: "builtin-vsu-lusaka-hq",
-    name: "Zambia Police VSU Headquarters (Lusaka Central)",
-    type: "vsu",
-    phone: "991",
-    secondary_phone: "999",
-    district: "Lusaka Province",
-    operating_hours: "24/7 Emergency & Walk-in",
     is_active: true,
     is_free: true,
     is_builtin: true,
@@ -114,13 +102,14 @@ export const BUILTIN_ZAMBIA_HELPLINES = [
     is_builtin: true,
   },
 
-  // Emergency Response Tab
+  // Emergency Response Tab (no duplicate 991 across cards)
   {
-    id: "builtin-er-police",
-    name: "Police Emergency",
+    id: "builtin-er-police-ambulance",
+    name: "Police & Ambulance Emergency",
     type: "emergency_response",
     phone: "991",
     secondary_phone: "0211-220006",
+    tertiary_phone: "0211-220180",
     district: "National (All Provinces)",
     operating_hours: "24/7 Toll-Free",
     is_active: true,
@@ -134,18 +123,6 @@ export const BUILTIN_ZAMBIA_HELPLINES = [
     phone: "999",
     secondary_phone: "0211-236644",
     tertiary_phone: "0211-702664",
-    district: "National (All Provinces)",
-    operating_hours: "24/7 Toll-Free",
-    is_active: true,
-    is_free: true,
-    is_builtin: true,
-  },
-  {
-    id: "builtin-er-ambulance",
-    name: "Ambulance Services",
-    type: "emergency_response",
-    phone: "991",
-    secondary_phone: "0211-220180",
     district: "National (All Provinces)",
     operating_hours: "24/7 Toll-Free",
     is_active: true,

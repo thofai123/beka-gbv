@@ -143,3 +143,10 @@
 .panic-pulse {
   animation: panic-pulse 2s infinite;
 }
+/* Tactile button & card polish */
+button, a[role="button"] {
+  transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+}
+button:not(:disabled):active, a[role="button"]:active {
+  transform: scale(0.975);
+}

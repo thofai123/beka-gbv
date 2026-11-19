@@ -86,6 +86,7 @@ export default function ResetPassword() {
       icon={Lock}
       title="New password"
       subtitle={`Enter the 6-digit code sent to ${email}`}
+      backTo="/beka/forgot-password"
     >
       {error && (
         <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
