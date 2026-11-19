@@ -222,11 +222,17 @@ router.post("/reset-password/request", async (req, res, next) => {
           created_by: "password-reset",
         },
       });
-      await sendEmail({
+      const emailResult = await sendEmail({
         to: email,
         subject: "BEKA — Password Reset Code",
         html: passwordResetEmailHtml(code),
       });
+      if (!emailResult.ok) {
+        return res.status(502).json({
+          success: false,
+          message: "Failed to send reset email: " + (emailResult.error || "Email service error"),
+        });
+      }
     }
     res.json({ success: true });
   } catch (e) { next(e); }

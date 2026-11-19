@@ -4,7 +4,6 @@ import { Bell, Loader2, AlertTriangle, MapPin } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import CriticalEscalationBanner from "../components/CriticalEscalationBanner";
 import AdminDashboard from "./AdminDashboard";
-import BekaAiAssistant from "../components/BekaAiAssistant";
 import { useToast } from "@/components/ui/use-toast";
 import { haptic } from "@/lib/haptics";
 import { submitPanic, getSelectedContactIds } from "@/lib/emergencyQueue";
@@ -311,8 +310,6 @@ export default function Dashboard() {
 
       </div>
       )}
-
-      {user?.role !== "admin" && <BekaAiAssistant />}
 
       {/* Live indicator only — quick actions now live in footer */}
       <div className="w-full max-w-sm px-6 z-10 flex flex-col items-center hidden">

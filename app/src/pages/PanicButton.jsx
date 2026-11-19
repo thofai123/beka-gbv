@@ -1,17 +1,14 @@
-// 1-tap panic button with selective emergency contact alerting.
+// Help tab: BEKA Quick Guide AI + prioritized emergency contacts selection.
 
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { apiClient } from "@/api/client";
 import { EmergencyContactService } from "@/services/EmergencyContactService";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
+import BekaAiAssistant from "@/components/BekaAiAssistant";
 import {
-  CircleAlert,
   MapPin,
-  Shield,
   CheckCircle,
   Loader2,
   WifiOff,
@@ -32,10 +29,11 @@ import {
   setSelectedContactIds,
 } from "@/lib/emergencyQueue";
 
+const PRIORITY_LABELS = ["Primary", "Secondary", "Tertiary", "Quaternary", "Quinary"];
+
 export default function PanicButton() {
   const { toast } = useToast();
   const routerLocation = useLocation();
-  const [silentMode, setSilentMode] = useState(false);
   const [phase, setPhase] = useState("idle"); // idle | sending | success | queued
   const [location, setLocation] = useState(null);
   const [result, setResult] = useState(null);
@@ -91,7 +89,6 @@ export default function PanicButton() {
     setSelectedContactIds(all);
   };
 
-  // Auto-trigger when navigated from Dashboard HELP button
   useEffect(() => {
     if (routerLocation.state?.autoTrigger) {
       haptic.panic();
@@ -100,11 +97,6 @@ export default function PanicButton() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const startPanic = () => {
-    haptic.panic();
-    execute();
-  };
 
   const execute = async () => {
     setPhase("sending");
@@ -137,7 +129,7 @@ export default function PanicButton() {
       location_lat: loc.lat,
       location_lng: loc.lng,
       location_captured_at: loc.captured_at,
-      is_silent: silentMode,
+      is_silent: false,
       selected_contact_ids: selectedIds,
     });
 
@@ -164,24 +156,20 @@ export default function PanicButton() {
         );
       }
       haptic.success();
-      if (!silentMode) {
-        toast({
-          title: res.response?.delivery?.channels_failed
-            ? "Alert escalated to admins"
-            : "Alert sent",
-          description: `Case ${res.response?.case_ref}. ${selectedIds.length} selected contact(s) & responders notified.`,
-        });
-      }
+      toast({
+        title: res.response?.delivery?.channels_failed
+          ? "Alert escalated to admins"
+          : "Alert sent",
+        description: `Case ${res.response?.case_ref}. ${selectedIds.length} selected contact(s) & responders notified.`,
+      });
     } else {
       setPhase("queued");
       pendingCount().then(setQueued);
       haptic.success();
-      if (!silentMode) {
-        toast({
-          title: "Saved offline",
-          description: "Will send automatically when connection is restored.",
-        });
-      }
+      toast({
+        title: "Saved offline",
+        description: "Will send automatically when connection is restored.",
+      });
     }
   };
 
@@ -285,41 +273,20 @@ export default function PanicButton() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="text-center space-y-6 w-full"
+            className="space-y-5 w-full flex flex-col items-center"
           >
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Emergency Alert</h1>
+            <div className="text-center">
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Safety Help &amp; AI Guide</h1>
               <p className="text-muted-foreground mt-1 text-sm">
-                One tap notifies responders & your chosen contacts.
+                Quick guidance, helplines &amp; emergency contact priority.
               </p>
             </div>
 
-            <button
-              onClick={startPanic}
-              className="w-44 h-44 rounded-full bg-red-500 hover:bg-red-600 active:scale-95 transition-all duration-200 flex items-center justify-center mx-auto panic-pulse shadow-2xl shadow-red-500/30 group"
-            >
-              <div className="text-center">
-                <CircleAlert className="w-14 h-14 text-white mx-auto group-hover:scale-110 transition-transform" />
-                <span className="text-white font-bold text-sm mt-2 block">PANIC</span>
-              </div>
-            </button>
+            {/* BEKA AI Guide (moved here from Home) */}
+            <BekaAiAssistant />
 
-            {/* Silent Mode Card */}
-            <div className="bg-card border border-border rounded-xl p-4 max-w-xs mx-auto text-left">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-muted-foreground" />
-                  <Label className="text-sm">Silent Mode</Label>
-                </div>
-                <Switch checked={silentMode} onCheckedChange={setSilentMode} />
-              </div>
-              <p className="text-[10px] text-muted-foreground mt-1.5">
-                No visible confirmation — sent discreetly.
-              </p>
-            </div>
-
-            {/* Selective Emergency Contacts Card (Fixed /beka/contacts route + inline selection) */}
-            <div className="max-w-xs mx-auto bg-card border border-border rounded-xl overflow-hidden text-left">
+            {/* Prioritized Contacts Selected Card */}
+            <div className="w-full max-w-sm bg-card border border-border rounded-xl overflow-hidden text-left">
               <button
                 type="button"
                 onClick={() => setContactsExpanded((v) => !v)}
@@ -344,7 +311,7 @@ export default function PanicButton() {
                   </p>
                   <p className="text-[11px] text-muted-foreground">
                     {contacts.length > 0
-                      ? "Tap to choose who gets alerted on SOS"
+                      ? "Tap to view priority & choose who gets alerted"
                       : "Add loved ones to notify with live location"}
                   </p>
                 </div>
@@ -360,7 +327,7 @@ export default function PanicButton() {
                   {contacts.length > 0 ? (
                     <>
                       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                        <span>Select contacts to alert:</span>
+                        <span>Alert priority order:</span>
                         {selectedIds.length < contacts.length && (
                           <button
                             type="button"
@@ -372,8 +339,9 @@ export default function PanicButton() {
                         )}
                       </div>
                       <div className="space-y-1.5">
-                        {contacts.map((c) => {
+                        {contacts.map((c, idx) => {
                           const checked = selectedIds.includes(c.id);
+                          const priorityNum = c.priority || idx + 1;
                           return (
                             <button
                               key={c.id}
@@ -385,11 +353,21 @@ export default function PanicButton() {
                                   : "bg-background/60 border-border opacity-70"
                               }`}
                             >
-                              <div className="min-w-0 pr-2">
-                                <p className="text-xs font-semibold truncate">{c.name}</p>
-                                <p className="text-[10px] text-muted-foreground font-mono">
-                                  {c.phone}
-                                </p>
+                              <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                                <span className="w-6 h-6 rounded-full bg-primary/15 text-primary text-[11px] font-bold flex items-center justify-center flex-shrink-0">
+                                  {priorityNum}
+                                </span>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <p className="text-xs font-semibold truncate">{c.name}</p>
+                                    <span className="text-[9px] uppercase tracking-wide bg-muted px-1.5 py-0.5 rounded text-muted-foreground flex-shrink-0">
+                                      {PRIORITY_LABELS[priorityNum - 1] || `#${priorityNum}`}
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] text-muted-foreground font-mono">
+                                    {c.phone}
+                                  </p>
+                                </div>
                               </div>
                               {checked ? (
                                 <CheckSquare className="w-4 h-4 text-primary flex-shrink-0" />

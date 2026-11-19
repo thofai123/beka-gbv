@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
-import { Trash2, Plus, ShieldCheck, Lock, Loader2, Edit2, Check, X, BellRing } from "lucide-react";
+import { Trash2, Plus, ShieldCheck, Lock, Loader2, Edit2, Check, X, BellRing, Contact } from "lucide-react";
 import { getSelectedContactIds, setSelectedContactIds } from "@/lib/emergencyQueue";
 import { motion, AnimatePresence } from "framer-motion";
 import EmptyState from "../components/EmptyState";
@@ -29,6 +29,10 @@ export default function EmergencyContacts() {
   const [selectedIds, setSelectedIds] = useState([]);
 
   const isValidPhone = (value) => /^\+?[0-9\s-]{8,18}$/.test(value.trim());
+  const supportsDeviceContacts =
+    typeof navigator !== "undefined" &&
+    "contacts" in navigator &&
+    typeof navigator.contacts?.select === "function";
 
   const cacheLocally = (items) => {
     try { localStorage.setItem(CACHE_KEY, JSON.stringify(items)); } catch {}
@@ -53,6 +57,96 @@ export default function EmergencyContacts() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const pickFromPhoneContacts = async () => {
+    if (contacts.length >= MAX_CONTACTS) {
+      toast({ title: `Max ${MAX_CONTACTS} contacts allowed`, variant: "destructive" });
+      return;
+    }
+
+    if (!supportsDeviceContacts) {
+      setEditingId(null);
+      setAdding(true);
+      toast({
+        title: "Enter contact details below",
+        description: "Direct phone contact picker is supported on mobile Android browsers. You can enter the name and phone number manually here.",
+      });
+      return;
+    }
+
+    try {
+      const remainingSlots = MAX_CONTACTS - contacts.length;
+      const picked = await navigator.contacts.select(["name", "tel"], {
+        multiple: remainingSlots > 1,
+      });
+
+      if (!picked || picked.length === 0) return;
+
+      // Single contact selected -> populate the form so user can review & set relationship
+      if (picked.length === 1) {
+        const rawName = (picked[0].name && picked[0].name[0]) || "";
+        const rawPhone = (picked[0].tel && picked[0].tel[0]) || "";
+        setEditingId(null);
+        setDraft({
+          name: rawName.trim(),
+          phone: rawPhone.trim(),
+          relationship: "",
+          notify_location: true,
+        });
+        setAdding(true);
+        toast({
+          title: "Contact imported from phone",
+          description: "Review details and tap Save contact.",
+        });
+        return;
+      }
+
+      // Multiple contacts selected -> save directly up to remainingSlots
+      setSaving(true);
+      let currentList = [...contacts];
+      let currentSelected = [...selectedIds];
+      let addedCount = 0;
+
+      for (const item of picked.slice(0, remainingSlots)) {
+        const rawName = ((item.name && item.name[0]) || "").trim();
+        const rawPhone = ((item.tel && item.tel[0]) || "").trim();
+        if (!rawName || !rawPhone) continue;
+
+        const created = await EmergencyContactService.create({
+          name: rawName,
+          phone: rawPhone,
+          relationship: "",
+          priority: currentList.length + 1,
+          notify_location: true,
+          created_by: currentUser.email,
+          user_id: currentUser.id,
+        });
+        currentList.push(created);
+        currentSelected.push(created.id);
+        addedCount += 1;
+      }
+
+      setContacts(currentList);
+      setSelectedIds(currentSelected);
+      setSelectedContactIds(currentSelected);
+      cacheLocally(currentList);
+      setSaving(false);
+
+      if (addedCount > 0) {
+        toast({ title: `${addedCount} contact(s) imported from phone` });
+      }
+    } catch (err) {
+      setSaving(false);
+      if (err?.name !== "AbortError") {
+        toast({
+          title: "Could not open phone contacts",
+          description: err?.message || "Please enter the contact manually.",
+          variant: "destructive",
+        });
+        setAdding(true);
+      }
+    }
+  };
 
   const addContact = async () => {
     if (!draft.name.trim() || !draft.phone.trim()) {
@@ -207,11 +301,16 @@ export default function EmergencyContacts() {
         <EmptyState
           icon={ShieldCheck}
           title="No emergency contacts yet"
-          description="Add up to 5 trusted people who will be notified only if responders fail to acknowledge or in critical emergencies."
+          description="Add up to 5 trusted people from your phone contacts or manually."
           action={
-            <Button onClick={() => setAdding(true)} className="gap-2">
-              <Plus className="w-4 h-4" /> Add first contact
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2 justify-center">
+              <Button onClick={pickFromPhoneContacts} className="gap-2">
+                <Contact className="w-4 h-4" /> Pick from Phone Contacts
+              </Button>
+              <Button variant="outline" onClick={() => setAdding(true)} className="gap-2">
+                <Plus className="w-4 h-4" /> Enter Manually
+              </Button>
+            </div>
           }
         />
       ) : (
@@ -286,9 +385,14 @@ export default function EmergencyContacts() {
           </AnimatePresence>
 
           {contacts.length < MAX_CONTACTS && !adding && (
-            <Button variant="outline" onClick={() => setAdding(true)} className="w-full gap-2 mt-2">
-              <Plus className="w-4 h-4" /> Add contact ({contacts.length}/{MAX_CONTACTS})
-            </Button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+              <Button onClick={pickFromPhoneContacts} disabled={saving} className="w-full gap-2">
+                <Contact className="w-4 h-4" /> Pick from Phone ({contacts.length}/{MAX_CONTACTS})
+              </Button>
+              <Button variant="outline" onClick={() => setAdding(true)} disabled={saving} className="w-full gap-2">
+                <Plus className="w-4 h-4" /> Enter Manually
+              </Button>
+            </div>
           )}
         </div>
       )}
@@ -324,7 +428,14 @@ export default function EmergencyContacts() {
             exit={{ opacity: 0 }}
             className="bg-card border border-border rounded-xl p-4 space-y-3"
           >
-            <h3 className="text-sm font-semibold">New emergency contact</h3>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold">New emergency contact</h3>
+              {supportsDeviceContacts && (
+                <Button type="button" size="sm" variant="secondary" onClick={pickFromPhoneContacts} className="gap-1.5 h-8 text-xs">
+                  <Contact className="w-3.5 h-3.5" /> From Phone Book
+                </Button>
+              )}
+            </div>
             <div className="space-y-2">
               <Label className="text-xs">Name</Label>
               <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="e.g. Mary Banda" />

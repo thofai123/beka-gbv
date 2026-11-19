@@ -1,4 +1,4 @@
-// Email delivery via Brevo HTTPS API (preferred on Render) or Brevo/Custom SMTP.
+// Email delivery via Gmail HTTPS Bridge (Google Apps Script) or SMTP fallback.
 import nodemailer from "nodemailer";
 
 let transporter = null;
@@ -23,52 +23,34 @@ function getTransporter() {
   return transporter;
 }
 
-function parseFrom(rawFrom) {
-  const fallbackName = "BEKA Safe4All";
-  const fallbackEmail = "beka.safe4all@gmail.com";
-  if (!rawFrom) return { name: fallbackName, email: fallbackEmail };
-  const match = rawFrom.match(/^(.*?)\s*<([^>]+)>$/);
-  if (match) {
-    return {
-      name: match[1].replace(/^["']|["']$/g, "").trim() || fallbackName,
-      email: match[2].trim(),
-    };
-  }
-  return { name: fallbackName, email: rawFrom.trim() };
-}
-
 export async function sendEmail({ to, subject, html, text }) {
-  const rawFrom = process.env.SMTP_FROM || "BEKA Safe4All <beka.safe4all@gmail.com>";
-  const brevoApiKey = process.env.BREVO_API_KEY;
+  const rawFrom = process.env.SMTP_FROM || "BEKA Safe4All <mthofai@gmail.com>";
 
-  // 1. Prefer Brevo HTTP API over HTTPS (port 443 is never blocked by Render)
-  if (brevoApiKey) {
+  // 1. Gmail HTTPS Bridge (Google Apps Script Web App — sends over HTTPS 443, never blocked by Render)
+  const gmailWebhookUrl = process.env.GMAIL_WEBHOOK_URL;
+  const gmailWebhookSecret = process.env.GMAIL_WEBHOOK_SECRET;
+  if (gmailWebhookUrl && gmailWebhookSecret) {
     try {
-      const sender = parseFrom(rawFrom);
-      const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+      const res = await fetch(gmailWebhookUrl, {
         method: "POST",
-        headers: {
-          "accept": "application/json",
-          "api-key": brevoApiKey,
-          "content-type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
+        redirect: "follow",
         body: JSON.stringify({
-          sender,
-          to: [{ email: to }],
+          secret: gmailWebhookSecret,
+          to,
           subject,
-          htmlContent: html,
-          ...(text ? { textContent: text } : {}),
+          html: html || text,
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const errMsg = data?.message || `Brevo API HTTP ${res.status}`;
-        console.error(`[email] Brevo API failed for ${to}:`, errMsg);
+      if (!res.ok || data.ok === false) {
+        const errMsg = data?.error || `Gmail bridge HTTP ${res.status}`;
+        console.error(`[email] Gmail bridge failed for ${to}:`, errMsg);
         return { ok: false, error: errMsg };
       }
-      return { ok: true, messageId: data?.messageId || "brevo-api" };
+      return { ok: true, messageId: "gmail-bridge" };
     } catch (err) {
-      console.error(`[email] Brevo API network error for ${to}:`, err.message);
+      console.error(`[email] Gmail bridge network error for ${to}:`, err.message);
       return { ok: false, error: err.message };
     }
   }
@@ -76,7 +58,7 @@ export async function sendEmail({ to, subject, html, text }) {
   // 2. Fallback to Nodemailer SMTP
   const t = getTransporter();
   if (!t) {
-    console.warn(`[email] Neither BREVO_API_KEY nor SMTP_* is configured — skipping email to ${to}: "${subject}"`);
+    console.warn(`[email] No email provider configured — skipping email to ${to}: "${subject}"`);
     return { ok: false, skipped: true, error: "Email service not configured on server" };
   }
   try {
