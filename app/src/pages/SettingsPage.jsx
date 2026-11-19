@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
-import { Settings, User, Loader2, Trash2, ShieldCheck, Globe, HelpCircle, FileText, Lock, Upload } from "lucide-react";
+import { Settings, User, Loader2, Trash2, ShieldCheck, Globe, HelpCircle, FileText, Lock, Upload, LogOut } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
@@ -334,6 +334,22 @@ export default function SettingsPage() {
             <SettingsLegal />
           </div>
         </SettingsSection>
+
+        {/* 5. Log Out */}
+        <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold">Sign Out</h3>
+            <p className="text-xs text-muted-foreground">Log out of your BEKA account on this device</p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => UserService.logout()}
+            className="gap-2 border-destructive/40 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+          >
+            <LogOut className="w-4 h-4" /> Log Out
+          </Button>
+        </div>
       </motion.div>
 
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

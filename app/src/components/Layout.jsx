@@ -19,7 +19,7 @@ const PAGE_TITLES = {
   "/beka/team": "Team",
   "/beka/evidence": "Evidence",
   "/beka/statement": "Statement",
-  "/beka/panic": "Help",
+  "/beka/panic": "AI Help",
   "/beka/alerts-map": "Alerts",
   "/beka/security": "Security",
   "/beka/response-units": "Response Units",

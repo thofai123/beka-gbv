@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { Home, UserPlus, LifeBuoy, Settings, AlertTriangle, Phone, HeartHandshake, ShieldAlert, X, FileText, Users } from "lucide-react";
+import { Home, UserPlus, LifeBuoy, Settings, Sparkles, Phone, HeartHandshake, ShieldAlert, X, FileText, Users } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { haptic } from "@/lib/haptics";
@@ -90,12 +90,12 @@ export default function BottomTabBar() {
           <div className="w-20 flex-shrink-0 flex justify-center">
             <button
               onClick={() => { haptic.medium(); navigate("/beka/panic"); }}
-              aria-label="Help"
+              aria-label="AI Help"
               className="relative -mt-5 w-14 h-14 min-w-[44px] min-h-[44px] rounded-full bg-gradient-to-br from-orange-400 to-orange-500 shadow-lg shadow-orange-500/40 flex flex-col items-center justify-center active:scale-90 transition-transform border-4 border-sidebar"
               style={{ transition: "transform 0.2s, scale 0.15s" }}>
               
-              <AlertTriangle className="w-5 h-5 text-black" />
-              <span className="text-[8px] font-bold text-black tracking-wider mt-0.5">{t("help")}</span>
+              <Sparkles className="w-5 h-5 text-black" />
+              <span className="text-[8px] font-bold text-black tracking-tight mt-0.5">AI Help</span>
               <span
                 className="absolute inset-0 rounded-full bg-orange-300/50 animate-ping"
                 style={{ animationDuration: "2.5s" }} />

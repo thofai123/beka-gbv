@@ -1,4 +1,30 @@
 export const BUILTIN_ZAMBIA_HELPLINES = [
+  // VSU (Victim Support Unit) Tab
+  {
+    id: "builtin-vsu-national",
+    name: "Zambia Police Victim Support Unit (VSU) — National Desk",
+    type: "vsu",
+    phone: "991",
+    secondary_phone: "0211-220006",
+    district: "National (All Police Stations)",
+    operating_hours: "24/7 Toll-Free & Desk",
+    is_active: true,
+    is_free: true,
+    is_builtin: true,
+  },
+  {
+    id: "builtin-vsu-lusaka-hq",
+    name: "Zambia Police VSU Headquarters (Lusaka Central)",
+    type: "vsu",
+    phone: "991",
+    secondary_phone: "999",
+    district: "Lusaka Province",
+    operating_hours: "24/7 Emergency & Walk-in",
+    is_active: true,
+    is_free: true,
+    is_builtin: true,
+  },
+
   // Child Protection Tab
   {
     id: "builtin-cp-childline-116",

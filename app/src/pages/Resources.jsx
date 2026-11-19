@@ -31,7 +31,7 @@ const CATEGORY_KEYS = [
   "legal_aid",
   "emergency_response",
 ];
-const RESOURCES_CACHE_KEY = "safeguard_resources_cache_v5";
+const RESOURCES_CACHE_KEY = "safeguard_resources_cache_v6";
 
 function mergeWithBuiltins(apiItems = []) {
   const validApi = Array.isArray(apiItems) ? apiItems : [];
