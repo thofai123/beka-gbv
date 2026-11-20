@@ -596,4 +596,40 @@ router.post("/inviteAdmin", requireAuth, requireRole("admin"), async (req, res, 
   } catch (e) { next(e); }
 });
 
+
+// POST /functions/deleteTeamMember
+router.post("/deleteTeamMember", requireAuth, requireRole("admin"), async (req, res, next) => {
+  try {
+    const expectedPin = process.env.ADMIN_TEAM_PIN || "1126";
+    const pin = String(req.body?.pin || "").trim();
+    if (pin !== expectedPin) {
+      return res.status(403).json({ message: "Invalid Admin PIN (1126 required to delete)." });
+    }
+
+    const userId = String(req.body?.user_id || "").trim();
+    if (!userId) {
+      return res.status(400).json({ message: "user_id is required." });
+    }
+
+    const target = await prisma.user.findUnique({ where: { id: userId } });
+    if (!target) {
+      return res.status(404).json({ message: "Team member not found." });
+    }
+
+    if (target.email.toLowerCase() === req.user.email.toLowerCase()) {
+      return res.status(400).json({ message: "You cannot delete your own active admin account." });
+    }
+
+    if (target.role === "admin") {
+      const adminCount = await prisma.user.count({ where: { role: "admin" } });
+      if (adminCount <= 1) {
+        return res.status(400).json({ message: "Cannot delete the last remaining administrator." });
+      }
+    }
+
+    await prisma.user.delete({ where: { id: userId } });
+    return res.json({ success: true, deleted_id: userId, deleted_email: target.email });
+  } catch (e) { next(e); }
+});
+
 export default router;

@@ -3,11 +3,34 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useUsers } from "@/hooks/useEntityQueries";
 import { UserService } from "@/services/UserService";
 import { apiClient } from "@/api/client";
-import { Users, Shield, UserCheck, Briefcase, Edit2, Check, X, Phone, Lock, UserPlus, Camera, Mail, Loader2, KeyRound } from "lucide-react";
+import {
+  Users,
+  Shield,
+  UserCheck,
+  Briefcase,
+  Edit2,
+  Check,
+  X,
+  Phone,
+  Lock,
+  UserPlus,
+  Camera,
+  Mail,
+  Loader2,
+  KeyRound,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import EmptyState from "../components/EmptyState";
 import { motion } from "framer-motion";
@@ -21,26 +44,64 @@ const roleConfig = {
 };
 
 const specLabels = {
-  general:   "General",
-  counseling:"Counseling",
-  legal:     "Legal Aid",
-  medical:   "Medical",
-  shelter:   "Shelter",
+  general:    "General",
+  counseling: "Counseling",
+  legal:      "Legal Aid",
+  medical:    "Medical",
+  shelter:    "Shelter",
 };
 
-function UserCard({ u, isAdmin, onRoleChange }) {
-  const { toast }             = useToast();
-  const [editing, setEditing] = useState(false);
-  const [role, setRole]       = useState(u.role || "survivor");
-  const [phone, setPhone]     = useState(u.phone || "");
-  const [saving, setSaving]   = useState(false);
+async function uploadPhotoFile(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const token = localStorage.getItem("beka_access_token") || localStorage.getItem("access_token") || "";
+  const res = await fetch("/integrations/upload", {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "Upload failed");
+  return data.file_url;
+}
+
+function UserCard({ u, isAdmin, isSelf, onRoleChange, onRequestDelete }) {
+  const { toast } = useToast();
+  const editFileRef = useRef(null);
+
+  const [editing, setEditing]         = useState(false);
+  const [fullName, setFullName]       = useState(u.full_name || "");
+  const [role, setRole]               = useState(u.role || "survivor");
+  const [phone, setPhone]             = useState(u.phone || "");
+  const [photo, setPhoto]             = useState(u.profile_picture || "");
+  const [uploading, setUploading]     = useState(false);
+  const [saving, setSaving]           = useState(false);
 
   const rc = roleConfig[u.role] || roleConfig.survivor;
+
+  const handleEditPhoto = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const url = await uploadPhotoFile(file);
+      setPhoto(url);
+      toast({ title: "Photo updated" });
+    } catch (err) {
+      toast({ title: "Photo upload failed", description: err?.message, variant: "destructive" });
+    }
+    setUploading(false);
+  };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await UserService.update(u.id, { role, phone });
+      await UserService.update(u.id, {
+        full_name: fullName.trim() || u.full_name,
+        role,
+        phone: phone.trim(),
+        profile_picture: photo || null,
+      });
       toast({ title: "Team member updated" });
       setEditing(false);
       onRoleChange();
@@ -57,9 +118,9 @@ function UserCard({ u, isAdmin, onRoleChange }) {
       className="bg-card border border-border rounded-xl p-4"
     >
       <div className="flex items-start gap-3">
-        {u.profile_picture ? (
+        {(editing ? photo : u.profile_picture) ? (
           <img
-            src={u.profile_picture}
+            src={editing ? photo : u.profile_picture}
             alt={u.full_name || u.email}
             className="w-11 h-11 rounded-full object-cover border border-border flex-shrink-0"
           />
@@ -70,12 +131,29 @@ function UserCard({ u, isAdmin, onRoleChange }) {
             </span>
           </div>
         )}
+
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold truncate">{u.full_name || "Unnamed"}</p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm font-semibold truncate">{u.full_name || "Unnamed"}</p>
+            {isSelf && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-400 font-semibold">
+                You
+              </span>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground truncate">{u.email}</p>
 
           {editing ? (
-            <div className="mt-3 space-y-2">
+            <div className="mt-3 space-y-2.5">
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Full Name</p>
+                <Input
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Full Name"
+                  className="h-8 text-xs"
+                />
+              </div>
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Role</p>
                 <Select value={role} onValueChange={setRole}>
@@ -98,13 +176,46 @@ function UserCard({ u, isAdmin, onRoleChange }) {
                   className="h-8 text-xs"
                 />
               </div>
-              <div className="flex gap-2 pt-1">
-                <Button size="sm" onClick={handleSave} disabled={saving} className="h-7 text-xs gap-1">
-                  <Check className="w-3 h-3" /> Save
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => editFileRef.current?.click()}
+                  disabled={uploading}
+                  className="h-7 text-xs gap-1"
+                >
+                  {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />}
+                  {photo ? "Change Photo" : "Upload Photo"}
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setEditing(false)} className="h-7 text-xs gap-1">
-                  <X className="w-3 h-3" /> Cancel
-                </Button>
+                <input
+                  ref={editFileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleEditPhoto}
+                  className="hidden"
+                />
+              </div>
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={handleSave} disabled={saving || uploading} className="h-7 text-xs gap-1">
+                    <Check className="w-3 h-3" /> Save
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setEditing(false)} className="h-7 text-xs gap-1">
+                    <X className="w-3 h-3" /> Cancel
+                  </Button>
+                </div>
+                {!isSelf && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => onRequestDelete(u)}
+                    className="h-7 text-xs gap-1"
+                  >
+                    <Trash2 className="w-3 h-3" /> Delete
+                  </Button>
+                )}
               </div>
             </div>
           ) : (
@@ -127,14 +238,28 @@ function UserCard({ u, isAdmin, onRoleChange }) {
         </div>
 
         {isAdmin && !editing && (
-          <Button
-            size="icon"
-            variant="ghost"
-            className="w-7 h-7 flex-shrink-0"
-            onClick={() => setEditing(true)}
-          >
-            <Edit2 className="w-3.5 h-3.5" />
-          </Button>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Button
+              size="icon"
+              variant="ghost"
+              aria-label="Edit member"
+              className="w-7 h-7"
+              onClick={() => setEditing(true)}
+            >
+              <Edit2 className="w-3.5 h-3.5" />
+            </Button>
+            {!isSelf && (
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label="Delete member"
+                className="w-7 h-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => onRequestDelete(u)}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
+            )}
+          </div>
         )}
       </div>
     </motion.div>
@@ -146,18 +271,23 @@ export default function Team() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef(null);
 
-  const [currentUser, setCurrentUser] = useState(null);
-  const [pinUnlocked, setPinUnlocked] = useState(() => sessionStorage.getItem(TEAM_PIN_SESSION_KEY) === "1126");
-  const [pinInput, setPinInput]       = useState("");
+  const [currentUser, setCurrentUser]   = useState(null);
+  const [pinUnlocked, setPinUnlocked]   = useState(() => sessionStorage.getItem(TEAM_PIN_SESSION_KEY) === "1126");
+  const [pinInput, setPinInput]         = useState("");
   const [verifyingPin, setVerifyingPin] = useState(false);
 
-  const [showAddAdmin, setShowAddAdmin] = useState(false);
-  const [fullName, setFullName]         = useState("");
-  const [email, setEmail]               = useState("");
-  const [phone, setPhone]               = useState("");
-  const [photoUrl, setPhotoUrl]         = useState("");
+  const [showAddAdmin, setShowAddAdmin]     = useState(false);
+  const [fullName, setFullName]             = useState("");
+  const [email, setEmail]                   = useState("");
+  const [phone, setPhone]                   = useState("");
+  const [photoUrl, setPhotoUrl]             = useState("");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [inviting, setInviting]         = useState(false);
+  const [inviting, setInviting]             = useState(false);
+
+  // PIN-confirmed Delete state
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deletePin, setDeletePin]       = useState("");
+  const [deleting, setDeleting]         = useState(false);
 
   const [refreshKey, setRefreshKey] = useState(0);
   const [search, setSearch]         = useState("");
@@ -196,17 +326,8 @@ export default function Team() {
     if (!file) return;
     setUploadingPhoto(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const token = localStorage.getItem("beka_access_token") || localStorage.getItem("access_token") || "";
-      const res = await fetch("/integrations/upload", {
-        method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        body: formData,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Upload failed");
-      setPhotoUrl(data.file_url);
+      const url = await uploadPhotoFile(file);
+      setPhotoUrl(url);
       toast({ title: "Security photo uploaded" });
     } catch (err) {
       toast({ title: "Photo upload failed", description: err?.message || "Try JPG or PNG", variant: "destructive" });
@@ -254,6 +375,37 @@ export default function Team() {
     setInviting(false);
   };
 
+  const handleConfirmDelete = async (e) => {
+    e?.preventDefault();
+    if (!deleteTarget) return;
+    if (!deletePin.trim()) {
+      toast({ title: "Enter the 1126 security PIN to confirm deletion", variant: "destructive" });
+      return;
+    }
+    setDeleting(true);
+    try {
+      await apiClient.functions.invoke("deleteTeamMember", {
+        user_id: deleteTarget.id,
+        pin: deletePin.trim(),
+      });
+      toast({
+        title: "Team Member Deleted",
+        description: `${deleteTarget.full_name || deleteTarget.email} has been removed.`,
+      });
+      setDeleteTarget(null);
+      setDeletePin("");
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      toast({
+        title: "Deletion blocked",
+        description: err?.message || "Incorrect PIN or action not allowed.",
+        variant: "destructive",
+      });
+    }
+    setDeleting(false);
+  };
+
   if (!pinUnlocked) {
     return (
       <div className="max-w-sm mx-auto px-4 pt-12">
@@ -264,7 +416,7 @@ export default function Team() {
           <div>
             <h1 className="text-lg font-bold tracking-tight">Admin Team Access</h1>
             <p className="text-xs text-muted-foreground mt-1">
-              Enter the security PIN to view team members and assign administrators.
+              Enter the security PIN to view team members and manage administrators.
             </p>
           </div>
           <form onSubmit={handleUnlockPin} className="space-y-3">
@@ -317,9 +469,14 @@ export default function Team() {
               key={u.id + refreshKey}
               u={u}
               isAdmin={isAdmin}
+              isSelf={currentUser?.email?.toLowerCase() === u.email?.toLowerCase()}
               onRoleChange={() => {
                 queryClient.invalidateQueries({ queryKey: ["users"] });
                 setRefreshKey((k) => k + 1);
+              }}
+              onRequestDelete={(target) => {
+                setDeleteTarget(target);
+                setDeletePin("");
               }}
             />
           ))}
@@ -445,6 +602,71 @@ export default function Team() {
           {renderSection("Users / Survivors", survivors, <Users className="w-4 h-4 text-green-400" />)}
         </div>
       )}
+
+      {/* PIN-Gated Delete Confirmation Dialog */}
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null);
+            setDeletePin("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="w-4 h-4" /> Delete Team Member
+            </DialogTitle>
+            <DialogDescription>
+              You are about to permanently remove{" "}
+              <strong className="text-foreground">
+                {deleteTarget?.full_name || deleteTarget?.email}
+              </strong>{" "}
+              ({deleteTarget?.role || "member"}). Enter the security PIN to confirm.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleConfirmDelete} className="space-y-4 pt-1">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Security PIN *</Label>
+              <div className="relative">
+                <KeyRound className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                <Input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={deletePin}
+                  onChange={(e) => setDeletePin(e.target.value)}
+                  placeholder="Enter 4-digit PIN"
+                  className="pl-9 text-center tracking-[0.35em] font-bold h-11"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setDeleteTarget(null);
+                  setDeletePin("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="destructive"
+                disabled={deleting || !deletePin.trim()}
+                className="gap-1.5"
+              >
+                {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                Confirm Delete
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
