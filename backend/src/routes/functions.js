@@ -111,9 +111,6 @@ router.post("/triggerEmergency", requireAuth, async (req, res, next) => {
       },
     });
 
-    const reportArea = !b.location_description && b.location_lat != null && b.location_lng != null
-      ? await reverseGeocodeArea(b.location_lat, b.location_lng)
-      : null;
     const newCase = await prisma.case.create({
       data: {
         case_id: caseRef,
