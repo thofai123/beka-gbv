@@ -632,4 +632,43 @@ router.post("/deleteTeamMember", requireAuth, requireRole("admin"), async (req, 
   } catch (e) { next(e); }
 });
 
+
+// POST /functions/updateTeamMember
+router.post("/updateTeamMember", requireAuth, requireRole("admin"), async (req, res, next) => {
+  try {
+    const userId = String(req.body?.user_id || "").trim();
+    if (!userId) {
+      return res.status(400).json({ message: "user_id is required." });
+    }
+
+    const target = await prisma.user.findUnique({ where: { id: userId } });
+    if (!target) {
+      return res.status(404).json({ message: "Team member not found." });
+    }
+
+    const allowedRoles = ["admin", "responder", "survivor"];
+    const nextRole = allowedRoles.includes(req.body?.role) ? req.body.role : target.role;
+
+    if (target.role === "admin" && nextRole !== "admin") {
+      const adminCount = await prisma.user.count({ where: { role: "admin" } });
+      if (adminCount <= 1) {
+        return res.status(400).json({ message: "Cannot remove admin role from the last remaining administrator." });
+      }
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(req.body?.full_name !== undefined ? { full_name: String(req.body.full_name || "").trim() || target.full_name } : {}),
+        role: nextRole,
+        ...(req.body?.phone !== undefined ? { phone: String(req.body.phone || "").trim() || null } : {}),
+        ...(req.body?.profile_picture !== undefined ? { profile_picture: req.body.profile_picture || null } : {}),
+      },
+    });
+
+    const { password_hash, ...safeUser } = updated;
+    return res.json({ success: true, user: safeUser });
+  } catch (e) { next(e); }
+});
+
 export default router;

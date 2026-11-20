@@ -108,7 +108,8 @@ function UserCard({ u, isAdmin, isSelf, onRoleChange, onRequestDelete }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await UserService.update(u.id, {
+      await apiClient.functions.invoke("updateTeamMember", {
+        user_id: u.id,
         full_name: fullName.trim() || u.full_name,
         role,
         phone: phone.trim(),
@@ -117,8 +118,8 @@ function UserCard({ u, isAdmin, isSelf, onRoleChange, onRequestDelete }) {
       toast({ title: "Team member updated" });
       setEditing(false);
       onRoleChange();
-    } catch {
-      toast({ title: "Update failed", variant: "destructive" });
+    } catch (err) {
+      toast({ title: "Update failed", description: err?.message || "Could not save changes", variant: "destructive" });
     }
     setSaving(false);
   };
