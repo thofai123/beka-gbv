@@ -59,7 +59,7 @@ function EvidenceIcon({ fileType, fileUrl }) {
 }
 
 function EvidenceOverlay({ item, onClose }) {
-  const isImage = item.file_type === "photo" || /\.(png|jpe?g|gif|webp)$/i.test(item.file_url || "");
+  const isImage = item.file_type === "photo" || /^data:image\//i.test(item.file_url || "") || /\.(png|jpe?g|gif|webp|heic)$/i.test(item.file_url || "");
   const isAudio = item.file_type === "audio" || /\.(mp3|wav|ogg|m4a)$/i.test(item.file_url || "");
   const isVideo = /\.(mp4|mov|webm|avi)$/i.test(item.file_url || "");
 
@@ -349,12 +349,12 @@ export default function CaseDetail() {
     rawAttachments.forEach((url, idx) => {
       if (!url || seenUrls.has(url)) return;
       seenUrls.add(url);
-      const isImg = /\.(png|jpe?g|gif|webp|heic)$/i.test(url);
+      const isImg = /^data:image\//i.test(url) || /\.(png|jpe?g|gif|webp|heic)$/i.test(url);
       const isAudio = /\.(mp3|wav|ogg|m4a)$/i.test(url);
       list.push({
         id: `att-${idx}`,
         file_url: url,
-        file_name: decodeURIComponent(String(url).split("/").pop() || `Scene Photo ${idx + 1}`),
+        file_name: String(url).startsWith("data:") ? `Scene Photo ${idx + 1}.jpg` : decodeURIComponent(String(url).split("/").pop() || `Scene Photo ${idx + 1}`),
         file_type: isImg ? "photo" : isAudio ? "audio" : "document",
         created_date: caseData?.created_date,
       });
@@ -562,10 +562,10 @@ export default function CaseDetail() {
         ) : (
           <div className="space-y-3">
             {/* Image Thumbnail Grid */}
-            {combinedEvidence.some((item) => item.file_type === "photo" || /\.(png|jpe?g|gif|webp|heic)$/i.test(item.file_url || "")) && (
+            {combinedEvidence.some((item) => item.file_type === "photo" || /^data:image\//i.test(item.file_url || "") || /\.(png|jpe?g|gif|webp|heic)$/i.test(item.file_url || "")) && (
               <div className="grid grid-cols-2 gap-2.5">
                 {combinedEvidence
-                  .filter((item) => item.file_type === "photo" || /\.(png|jpe?g|gif|webp|heic)$/i.test(item.file_url || ""))
+                  .filter((item) => item.file_type === "photo" || /^data:image\//i.test(item.file_url || "") || /\.(png|jpe?g|gif|webp|heic)$/i.test(item.file_url || ""))
                   .map((item) => (
                     <button
                       key={item.id}
@@ -576,8 +576,16 @@ export default function CaseDetail() {
                       <img
                         src={resolveFileUrl(item.file_url)}
                         alt={item.file_name}
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                          if (e.currentTarget.nextElementSibling) e.currentTarget.nextElementSibling.style.display = "flex";
+                        }}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                       />
+                      <div style={{ display: "none" }} className="w-full h-full flex-col items-center justify-center p-2 text-center text-muted-foreground gap-1">
+                        <Image className="w-5 h-5 opacity-60" />
+                        <span className="text-[10px] leading-tight">Image unavailable (pre-deploy upload)</span>
+                      </div>
                       <span className="absolute bottom-1.5 right-1.5 px-2 py-0.5 rounded bg-black/75 text-white text-[10px] font-semibold">
                         Tap to view
                       </span>

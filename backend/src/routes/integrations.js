@@ -57,8 +57,19 @@ router.post("/upload", requireAuth, receiveFile, async (req, res) => {
     const id = path.basename(tmpPath, ".part");
     finalPath = path.join(UPLOAD_DIR, `${id}${ext}`);
     if (detected.mime.startsWith("image/")) {
-      await sharp(tmpPath).rotate().toFile(finalPath);
+      const optimizedBuffer = await sharp(tmpPath)
+        .rotate()
+        .resize({ width: 1280, height: 1280, fit: "inside", withoutEnlargement: true })
+        .jpeg({ quality: 80 })
+        .toBuffer();
       fs.rmSync(tmpPath, { force: true });
+      const dataUrl = `data:image/jpeg;base64,${optimizedBuffer.toString("base64")}`;
+      return res.json({
+        file_url: dataUrl,
+        file_name: req.file.originalname,
+        file_size_kb: Math.max(1, Math.round(optimizedBuffer.length / 1024)),
+        content_type: "image/jpeg",
+      });
     } else {
       fs.renameSync(tmpPath, finalPath);
     }

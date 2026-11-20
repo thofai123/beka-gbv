@@ -1,19 +1,9 @@
-import { apiConfig } from "@/lib/app-params";
+const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 
-/**
- * Uploaded files are stored with a relative URL such as /uploads/abc.jpg.
- * In the website that resolves against the site itself. Inside the Android
- * app it would resolve against https://localhost, so when the API base is an
- * absolute URL we resolve the file URL against it instead.
- */
 export function resolveFileUrl(url) {
-  if (!url || typeof url !== "string") return url;
-  if (/^(https?:|blob:|data:)/i.test(url)) return url;
-  const base = apiConfig.apiBaseUrl || "";
-  if (!/^https?:\/\//i.test(base)) return url;
-  try {
-    return new URL(url, base).href;
-  } catch {
-    return url;
-  }
+  if (!url) return "";
+  const raw = String(url).trim();
+  if (/^(data:|blob:|https?:\/\/)/i.test(raw)) return raw;
+  if (raw.startsWith("/")) return API_BASE ? `${API_BASE}${raw}` : raw;
+  return raw;
 }
