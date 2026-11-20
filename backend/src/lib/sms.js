@@ -14,7 +14,9 @@ export function normalizeZambianPhone(phoneNumber) {
 }
 
 export function stripPlus(phone) {
-  return String(phone || "").replace(/\s+/g, "").replace(/^\+/, "");
+  let cleaned = String(phone || "").replace(/[\s()-]/g, "").replace(/^\+/, "");
+  if (/^0[79]\d{8}$/.test(cleaned)) cleaned = "260" + cleaned.slice(1);
+  return cleaned;
 }
 
 export function buildMapsLink(lat, lng) {

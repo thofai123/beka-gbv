@@ -101,15 +101,31 @@ export default function Dashboard() {
         : "Will auto-send as soon as internet reconnects.",
     });
 
+    const resolvedContacts = resp.contacts?.length ? resp.contacts : chosenContacts;
+    const smsDelivered = resp.contacts_notified || 0;
+
     setDispatchSummary({
       caseRef,
       sent: !!result?.sent,
       locationText,
       mapsLink,
       smsMessage: fallbackMessage,
-      contacts: resp.contacts?.length ? resp.contacts : chosenContacts,
-      smsDelivered: resp.contacts_notified || 0,
+      contacts: resolvedContacts,
+      smsDelivered,
     });
+
+    // If server SMS gateway is unconfigured/skipped or offline, automatically open the phone's native SMS app pre-addressed to all emergency contacts
+    if (resolvedContacts.length > 0 && smsDelivered === 0) {
+      const phones = resolvedContacts
+        .map((c) => String(c.phone || "").replace(/[^\d+]/g, ""))
+        .filter(Boolean);
+      if (phones.length > 0) {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent || "");
+        const sep = isIOS ? "&" : "?";
+        const recipientList = phones.join(",");
+        window.location.href = `sms:${recipientList}${sep}body=${encodeURIComponent(fallbackMessage)}`;
+      }
+    }
 
     setPanicPhase("idle");
   };
@@ -219,9 +235,17 @@ export default function Dashboard() {
 
               {dispatchSummary.contacts?.length > 0 ? (
                 <div className="space-y-1.5 pt-1 border-t border-white/10">
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">
-                    Emergency Contacts ({dispatchSummary.contacts.length}) — Direct Message Backup:
-                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">
+                      Emergency Contacts ({dispatchSummary.contacts.length}):
+                    </p>
+                    <a
+                      href={`sms:${dispatchSummary.contacts.map((c) => String(c.phone || "").replace(/[^\d+]/g, "")).filter(Boolean).join(",")}?body=${encodeURIComponent(dispatchSummary.smsMessage)}`}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-orange-500 text-black text-[10px] font-bold"
+                    >
+                      <MessageSquare className="w-3 h-3" /> SMS All ({dispatchSummary.contacts.length})
+                    </a>
+                  </div>
                   {dispatchSummary.contacts.map((c, idx) => {
                     const cleanPhone = String(c.phone || "").replace(/[^\d+]/g, "");
                     const waPhone = cleanPhone.replace(/^\+/, "");
