@@ -45,7 +45,7 @@ export async function sendSms(destination, message, messageType = 1) {
     `&messageText=${encodeURIComponent(message)}`;
 
   try {
-    const response = await fetch(url, { method: "GET" });
+    const response = await fetch(url, { method: "GET", signal: AbortSignal.timeout(6000) });
     const body = await response.text();
     const lowered = body.toLowerCase();
     const failedInPayload =

@@ -147,7 +147,7 @@ router.post("/triggerEmergency", requireAuth, async (req, res, next) => {
     const staff = await prisma.user.findMany({
       where: { role: { in: ["admin", "responder"] } },
     });
-    await Promise.all(
+    Promise.all(
       staff.map((s) =>
         sendEmail({
           to: s.email,

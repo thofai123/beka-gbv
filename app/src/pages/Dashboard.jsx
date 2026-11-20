@@ -45,80 +45,83 @@ export default function Dashboard() {
     haptic.panic();
     setPanicPhase("sending");
 
-    // 1. Capture live GPS coordinates (fast 8s timeout so alert never stalls)
-    let loc = { lat: null, lng: null, captured_at: null };
     try {
-      if (navigator.geolocation) {
-        const pos = await new Promise((res, rej) => {
-          navigator.geolocation.getCurrentPosition(res, rej, {
-            enableHighAccuracy: true,
-            timeout: 8000,
-            maximumAge: 5000,
+      let loc = { lat: null, lng: null, captured_at: null };
+      try {
+        if (navigator.geolocation) {
+          const pos = await new Promise((res, rej) => {
+            navigator.geolocation.getCurrentPosition(res, rej, {
+              enableHighAccuracy: true,
+              timeout: 5000,
+              maximumAge: 10000,
+            });
           });
-        });
-        loc = {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          captured_at: new Date().toISOString(),
-        };
+          loc = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            captured_at: new Date().toISOString(),
+          };
+        }
+      } catch {
+        /* proceed without coordinates */
       }
-    } catch {
-      /* proceed without coordinates */
+
+      const customTitle = (user?.emergency_title || "").trim() || "Emergency Alert";
+      const mapsLink =
+        loc.lat != null && loc.lng != null
+          ? `https://maps.google.com/?q=${loc.lat},${loc.lng}`
+          : null;
+      const locationText =
+        loc.lat != null && loc.lng != null
+          ? `${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}`
+          : "Location unavailable (enable GPS)";
+
+      const chosenIds = getSelectedContactIds(destinations);
+      const chosenContacts = destinations.filter((d) => chosenIds.includes(d.id));
+      const result = await submitPanic({
+        location_lat: loc.lat,
+        location_lng: loc.lng,
+        location_captured_at: loc.captured_at,
+        is_silent: false,
+        selected_contact_ids: chosenIds,
+      });
+
+      const resp = result?.response || {};
+      const caseRef = resp.case_ref || "SOS-QUEUED";
+      const resolvedContacts = resp.contacts?.length ? resp.contacts : chosenContacts;
+      const smsDelivered = Number(resp.contacts_notified || 0);
+      const fallbackMessage =
+        resp.sms_message ||
+        `BEKA EMERGENCY [${caseRef}]: ${user?.full_name || user?.email || "User"} needs urgent help!${mapsLink ? " Location: " + mapsLink : ""}`;
+
+      haptic.success();
+      toast({
+        title: result?.sent ? `🚨 ${customTitle} Sent (${caseRef})` : "Alert Saved Offline",
+        description: result?.sent
+          ? (smsDelivered > 0
+              ? `SMS automatically sent to ${smsDelivered} contact(s) · ${locationText}`
+              : `Responders alerted · ${locationText}`)
+          : "Will auto-send as soon as internet reconnects.",
+      });
+
+      setDispatchSummary({
+        caseRef,
+        sent: !!result?.sent,
+        locationText,
+        mapsLink,
+        smsMessage: fallbackMessage,
+        contacts: resolvedContacts,
+        smsDelivered,
+      });
+    } catch (err) {
+      toast({
+        title: "Alert error",
+        description: err?.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setPanicPhase("idle");
     }
-
-    const customTitle = (user?.emergency_title || "").trim() || "Emergency Alert";
-    const mapsLink =
-      loc.lat != null && loc.lng != null
-        ? `https://maps.google.com/?q=${loc.lat},${loc.lng}`
-        : null;
-    const locationText =
-      loc.lat != null && loc.lng != null
-        ? `${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}`
-        : "Location unavailable (enable GPS)";
-
-    // 2. Await backend triggerEmergency (logs Case + PanicAlert + Admin Email/Alert + Contact SMS/Email)
-    const chosenIds = getSelectedContactIds(destinations);
-    const chosenContacts = destinations.filter((d) => chosenIds.includes(d.id));
-    const result = await submitPanic({
-      location_lat: loc.lat,
-      location_lng: loc.lng,
-      location_captured_at: loc.captured_at,
-      is_silent: false,
-      selected_contact_ids: chosenIds,
-    });
-
-    const resp = result?.response || {};
-    const caseRef = resp.case_ref || "SOS-QUEUED";
-    const fallbackMessage =
-      resp.sms_message ||
-      `BEKA EMERGENCY [${caseRef}]: ${user?.full_name || user?.email || "User"} needs urgent help!${mapsLink ? " Location: " + mapsLink : ""}`;
-
-    haptic.success();
-    toast({
-      title: result?.sent ? `🚨 ${customTitle} Sent (${caseRef})` : "Alert Saved Offline",
-      description: result?.sent
-        ? (smsDelivered > 0
-            ? `SMS automatically sent to ${smsDelivered} contact(s) · ${locationText}`
-            : `Responders alerted · ${locationText}`)
-        : "Will auto-send as soon as internet reconnects.",
-    });
-
-    const resolvedContacts = resp.contacts?.length ? resp.contacts : chosenContacts;
-    const smsDelivered = resp.contacts_notified || 0;
-
-    setDispatchSummary({
-      caseRef,
-      sent: !!result?.sent,
-      locationText,
-      mapsLink,
-      smsMessage: fallbackMessage,
-      contacts: resolvedContacts,
-      smsDelivered,
-    });
-
-    // Background SMS is dispatched automatically via SMSala/Africala on the backend
-
-    setPanicPhase("idle");
   };
 
   if (loadingUser) {
