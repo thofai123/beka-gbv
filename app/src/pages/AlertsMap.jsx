@@ -1,18 +1,34 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
-import { MapPin, Radio, Clock, User } from "lucide-react";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import {
+  MapPin,
+  Radio,
+  Clock,
+  User,
+  Phone,
+  CheckCircle2,
+  X,
+  ExternalLink,
+  Loader2,
+  FileText,
+} from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import moment from "moment";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { useCurrentUser, useLiveEntityInvalidation, usePanicAlerts } from "@/hooks/useEntityQueries";
+import { useNavigate } from "react-router-dom";
+import {
+  useCases,
+  useCurrentUser,
+  useLiveEntityInvalidation,
+  usePanicAlerts,
+} from "@/hooks/useEntityQueries";
 import { PanicAlertService } from "@/services/PanicAlertService";
 import { PanicAlertWorkflowService } from "@/services/PanicAlertWorkflowService.js";
-import PanicAlertManagementCenter from "@/components/panic/PanicAlertManagementCenter";
 import { ACTIVE_PANIC_ALERT_STATUSES } from "@/constants/appConstants";
 
-// Fix leaflet default icon
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
@@ -21,63 +37,92 @@ L.Icon.Default.mergeOptions({
 });
 
 const panicIcon = new L.DivIcon({
-  html: `<div style="background:#ef4444;width:20px;height:20px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 3px #ef4444,0 0 12px rgba(239,68,68,0.7);animation:ping 1.5s ease-in-out infinite;"></div>
-  <style>@keyframes ping{0%,100%{box-shadow:0 0 0 3px #ef4444,0 0 12px rgba(239,68,68,0.7)}50%{box-shadow:0 0 0 6px rgba(239,68,68,0.3),0 0 20px rgba(239,68,68,0.4)}}</style>`,
+  html: `<div style="background:#ef4444;width:22px;height:22px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 4px rgba(239,68,68,0.45);"></div>`,
   className: "",
-  iconSize: [20, 20],
-  iconAnchor: [10, 10],
+  iconSize: [22, 22],
+  iconAnchor: [11, 11],
   popupAnchor: [0, -14],
 });
 
-const resolvedIcon = new L.DivIcon({
-  html: `<div style="background:#22c55e;width:16px;height:16px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 2px #22c55e;"></div>`,
-  className: "",
-  iconSize: [16, 16],
-  iconAnchor: [8, 8],
-  popupAnchor: [0, -12],
-});
-
-function FitBounds({ alerts }) {
-  const map = useMap();
-  useEffect(() => {
-    const valid = alerts.filter((a) => a.location_lat && a.location_lng && a.location_lat >= -18.1 && a.location_lat <= -8.2 && a.location_lng >= 21.9 && a.location_lng <= 33.7);
-    if (valid.length === 0) return;
-    if (valid.length === 1) map.setView([valid[0].location_lat, valid[0].location_lng], 13);
-    else map.fitBounds(L.latLngBounds(valid.map((a) => [a.location_lat, a.location_lng])), { padding: [60, 60] });
-  }, [alerts, map]);
-  return null;
-}
-
-const statusConfig = {
-  triggered: { label: "ACTIVE", text: "text-red-600" },
-  acknowledged: { label: "Acknowledged", text: "text-orange-600" },
-  responded: { label: "In Progress", text: "text-blue-600" },
-  resolved: { label: "Resolved", text: "text-green-600" },
-  escalated: { label: "Escalated", text: "text-purple-600" },
-};
-
 export default function AlertsMap() {
   const { toast } = useToast();
-  const [filter, setFilter] = useState("active");
-  const { data: alerts = [], isLoading: loadingAlerts } = usePanicAlerts({}, { sort: "-created_date", limit: 200 });
+  const navigate = useNavigate();
+  const [filter, setFilter] = useState("active"); // active | acknowledged | resolved
+  const [selectedMapAlert, setSelectedMapAlert] = useState(null);
+  const [busyId, setBusyId] = useState(null);
+
+  const { data: alerts = [], isLoading: loadingAlerts } = usePanicAlerts({}, { sort: "-created_date", limit: 300 });
+  const { data: cases = [] } = useCases({}, { sort: "-created_date", limit: 300 });
   const { data: user, isLoading: loadingUser } = useCurrentUser();
 
-  const handleAlertEvent = useCallback((event) => {
-    if (event.type === "create") {
-      toast({ title: "🚨 New panic alert received!", description: "A new emergency alert has been triggered." });
+  const handleAlertEvent = useCallback(
+    (event) => {
+      if (event.type === "create") {
+        toast({
+          title: "🚨 New Emergency Alert",
+          description: "A new SOS alert has been logged in the queue.",
+        });
+      }
+    },
+    [toast]
+  );
+
+  useLiveEntityInvalidation(
+    PanicAlertService,
+    [["panicAlerts"], ["cases"], ["caseUpdates"], ["notifications"]],
+    handleAlertEvent
+  );
+
+  // Map linked_case_id -> Case object so every alert displays its unique GBV-2026-XXXX ID
+  const caseById = useMemo(() => {
+    const map = new Map();
+    for (const c of cases) {
+      if (c.id) map.set(c.id, c);
     }
-  }, [toast]);
+    return map;
+  }, [cases]);
 
-  useLiveEntityInvalidation(PanicAlertService, [["panicAlerts"], ["cases"], ["caseUpdates"], ["notifications"]], handleAlertEvent);
+  const enrichedAlerts = useMemo(() => {
+    return alerts.map((a) => {
+      const linkedCase = a.linked_case_id ? caseById.get(a.linked_case_id) : null;
+      return {
+        ...a,
+        linkedCase,
+        displayCaseId: linkedCase?.case_id || `ALERT-${String(a.id || "").slice(0, 6).toUpperCase()}`,
+      };
+    });
+  }, [alerts, caseById]);
 
-  const filtered = useMemo(() => alerts.filter((a) =>
-    filter === "active" ? ACTIVE_PANIC_ALERT_STATUSES.includes(a.status) : a.status === "resolved"
-  ), [alerts, filter]);
+  const filtered = useMemo(() => {
+    return enrichedAlerts
+      .filter((a) => {
+        if (filter === "active") return a.status === "triggered" || a.status === "escalated";
+        if (filter === "acknowledged") return a.status === "acknowledged" || a.status === "responded";
+        return a.status === "resolved";
+      })
+      .sort((a, b) => new Date(b.created_date).getTime() - new Date(a.created_date).getTime());
+  }, [enrichedAlerts, filter]);
 
-  const mappable = filtered.filter((a) => a.location_lat && a.location_lng);
-  const noLocationCount = filtered.length - mappable.length;
-  const activeCount = alerts.filter((a) => ACTIVE_PANIC_ALERT_STATUSES.includes(a.status)).length;
+  const activeCount = enrichedAlerts.filter((a) => a.status === "triggered" || a.status === "escalated").length;
+  const awaitingCount = enrichedAlerts.filter((a) => a.status === "acknowledged" || a.status === "responded").length;
+  const resolvedCount = enrichedAlerts.filter((a) => a.status === "resolved").length;
   const canManage = user?.role === "admin" || user?.role === "responder";
+
+  const handleAcknowledgeToReview = async (alert) => {
+    setBusyId(alert.id);
+    try {
+      await PanicAlertWorkflowService.acknowledge(alert, user?.email);
+      toast({
+        title: `${alert.displayCaseId} Acknowledged`,
+        description: "Moved to Awaiting Review.",
+      });
+      if (selectedMapAlert?.id === alert.id) {
+        setSelectedMapAlert(null);
+      }
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   if (loadingAlerts || loadingUser) {
     return (
@@ -88,58 +133,264 @@ export default function AlertsMap() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-5">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+    <div className="max-w-2xl mx-auto px-3 py-3 space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center">
-            <Radio className="w-6 h-6 text-red-600" />
+          <div className="w-11 h-11 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center">
+            <Radio className="w-5 h-5 text-red-500" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Live Alert Map</h1>
-            <p className="text-sm text-muted-foreground">Real-time panic alert locations</p>
+            <h1 className="text-lg font-bold tracking-tight">Active Alerts Queue</h1>
+            <p className="text-xs text-muted-foreground">
+              Tap an alert to view its GPS map pin or Acknowledge → Awaiting Review
+            </p>
           </div>
         </div>
-        {activeCount > 0 && (
-          <motion.div animate={{ opacity: [0.7, 1, 0.7] }} transition={{ duration: 1.5, repeat: Infinity }} className="flex items-center gap-2 bg-red-500/10 border border-red-300 rounded-xl px-4 py-2">
-            <div className="w-2 h-2 rounded-full bg-red-500" />
-            <span className="text-sm font-semibold text-red-700">{activeCount} Active Alert{activeCount > 1 ? "s" : ""}</span>
-          </motion.div>
-        )}
       </div>
 
-      <div className="flex gap-2">
-        <button onClick={() => setFilter("active")} className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${filter === "active" ? "bg-red-500 text-white" : "bg-muted text-muted-foreground"}`}>
-          Active ({activeCount})
+      {/* Stage Filter Pills */}
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        <button
+          type="button"
+          onClick={() => setFilter("active")}
+          className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${
+            filter === "active" ? "bg-red-600 text-white" : "bg-muted text-muted-foreground"
+          }`}
+        >
+          Active Alerts ({activeCount})
         </button>
-        <button onClick={() => setFilter("resolved")} className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${filter === "resolved" ? "bg-green-600 text-white" : "bg-muted text-muted-foreground"}`}>
-          Resolved ({alerts.filter((a) => a.status === "resolved").length})
+        <button
+          type="button"
+          onClick={() => setFilter("acknowledged")}
+          className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${
+            filter === "acknowledged" ? "bg-amber-500 text-black" : "bg-muted text-muted-foreground"
+          }`}
+        >
+          Awaiting Review ({awaitingCount})
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilter("resolved")}
+          className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${
+            filter === "resolved" ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground"
+          }`}
+        >
+          Resolved ({resolvedCount})
         </button>
       </div>
 
-      <div className="rounded-2xl overflow-hidden border border-border shadow-md" style={{ height: 420 }}>
-        <MapContainer center={[-15.4167, 28.2833]} zoom={7} style={{ height: "100%", width: "100%" }} zoomControl>
-          <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <FitBounds alerts={mappable} />
-          {mappable.map((alert) => (
-            <Marker key={alert.id} position={[alert.location_lat, alert.location_lng]} icon={alert.status === "resolved" ? resolvedIcon : panicIcon}>
-              <Popup maxWidth={260}>
-                <div className="space-y-2 py-1">
-                  <span className={`text-xs font-bold uppercase ${statusConfig[alert.status]?.text || "text-gray-600"}`}>● {statusConfig[alert.status]?.label || alert.status}</span>
-                  <p className="text-xs text-gray-600"><Clock className="inline w-3 h-3 mr-1" />{moment(alert.created_date).format("D MMM YYYY, h:mm A")}<br /><span className="text-gray-400">{moment(alert.created_date).fromNow()}</span></p>
-                  <p className="text-[11px] font-mono text-gray-500">{alert.location_lat?.toFixed(5)}, {alert.location_lng?.toFixed(5)}</p>
-                  {alert.user_name && <p className="text-xs text-gray-600"><User className="inline w-3 h-3 mr-1" />{alert.user_name}</p>}
-                  {canManage && alert.status === "triggered" && <button onClick={() => PanicAlertWorkflowService.acknowledge(alert)} className="w-full mt-1 bg-orange-500 text-white text-xs font-medium py-1.5 rounded hover:bg-orange-600 transition-colors">Acknowledge</button>}
-                  <a href={`https://maps.google.com/?q=${alert.location_lat},${alert.location_lng}`} target="_blank" rel="noopener noreferrer" className="block w-full text-center text-xs text-blue-600 underline mt-1">Open in Google Maps</a>
+      {/* Chronological Unique Case Alert List */}
+      {filtered.length === 0 ? (
+        <div className="bg-card border border-border rounded-2xl p-10 text-center text-sm text-muted-foreground">
+          No alerts in this category.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((alert) => {
+            const hasCoords = alert.location_lat != null && alert.location_lng != null;
+            const phone = alert.phone || alert.user_phone || alert.linkedCase?.survivor_contact;
+            const sender = alert.user_name || alert.linkedCase?.survivor_name || alert.created_by || "Unknown User";
+            const isBusy = busyId === alert.id;
+
+            return (
+              <div
+                key={alert.id}
+                className={`bg-card border rounded-2xl p-4 space-y-3 transition-all ${
+                  alert.status === "triggered"
+                    ? "border-red-500/50 shadow-md shadow-red-500/10"
+                    : "border-border"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-mono font-bold text-foreground">
+                        {alert.displayCaseId}
+                      </span>
+                      <Badge
+                        className={
+                          alert.status === "triggered"
+                            ? "bg-red-600 text-white text-[10px]"
+                            : alert.status === "acknowledged"
+                            ? "bg-amber-500 text-black text-[10px]"
+                            : "bg-emerald-600 text-white text-[10px]"
+                        }
+                      >
+                        {alert.status === "triggered"
+                          ? "ACTIVE ALERT"
+                          : alert.status === "acknowledged"
+                          ? "AWAITING REVIEW"
+                          : alert.status.toUpperCase()}
+                      </Badge>
+                    </div>
+                    <p className="text-xs font-medium text-foreground mt-1 flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5 text-muted-foreground" /> {sender}
+                    </p>
+                    <p className="text-[11px] font-mono text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                      <Clock className="w-3 h-3" />
+                      {moment(alert.created_date).format("MMM D, YYYY · HH:mm:ss")} ({moment(alert.created_date).fromNow()})
+                    </p>
+                  </div>
+
+                  {phone && (
+                    <a
+                      href={`tel:${phone}`}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-border bg-muted/50 text-xs font-medium hover:bg-muted"
+                    >
+                      <Phone className="w-3.5 h-3.5 text-emerald-500" /> Call
+                    </a>
+                  )}
                 </div>
-              </Popup>
-            </Marker>
-          ))}
-        </MapContainer>
-      </div>
 
-      {noLocationCount > 0 && <p className="text-xs text-muted-foreground text-center"><MapPin className="inline w-3 h-3 mr-1" />{noLocationCount} alert{noLocationCount > 1 ? "s" : ""} without location data shown in the center below.</p>}
+                {/* Action Row: Open Location on Map + Acknowledge -> Awaiting Review + Open Case */}
+                <div className="flex flex-wrap gap-2 pt-2 border-t border-border/60">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setSelectedMapAlert(alert)}
+                    className="gap-1.5 text-xs"
+                  >
+                    <MapPin className="w-3.5 h-3.5 text-red-500" />
+                    {hasCoords
+                      ? `Open Location on Map (${alert.location_lat.toFixed(4)}, ${alert.location_lng.toFixed(4)})`
+                      : "Location Details"}
+                  </Button>
 
-      <PanicAlertManagementCenter currentUser={user} />
+                  {canManage && ACTIVE_PANIC_ALERT_STATUSES.includes(alert.status) && alert.status !== "acknowledged" && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={isBusy}
+                      onClick={() => handleAcknowledgeToReview(alert)}
+                      className="bg-amber-500 hover:bg-amber-600 text-black font-bold gap-1.5 text-xs"
+                    >
+                      {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                      Acknowledge → Awaiting Review
+                    </Button>
+                  )}
+
+                  {alert.linked_case_id && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => navigate(`/beka/cases/${alert.linked_case_id}`)}
+                      className="gap-1 text-xs ml-auto"
+                    >
+                      <FileText className="w-3.5 h-3.5" /> Open Case
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Focused Per-Case Map Modal (opens only when administrator clicks a specific case) */}
+      {selectedMapAlert && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setSelectedMapAlert(null)}
+        >
+          <div
+            className="bg-card border border-border rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl space-y-3 p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-mono text-orange-400 font-bold">
+                  {selectedMapAlert.displayCaseId}
+                </p>
+                <h3 className="text-base font-bold">
+                  {selectedMapAlert.user_name || selectedMapAlert.created_by || "Emergency Location"}
+                </h3>
+                <p className="text-[11px] text-muted-foreground">
+                  Triggered: {moment(selectedMapAlert.created_date).format("MMM D, YYYY · HH:mm:ss")}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedMapAlert(null)}
+                className="p-1.5 rounded-lg bg-muted hover:bg-muted/80"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {selectedMapAlert.location_lat != null && selectedMapAlert.location_lng != null ? (
+              <>
+                <div className="rounded-xl overflow-hidden border border-border" style={{ height: 300 }}>
+                  <MapContainer
+                    key={selectedMapAlert.id}
+                    center={[selectedMapAlert.location_lat, selectedMapAlert.location_lng]}
+                    zoom={15}
+                    style={{ height: "100%", width: "100%" }}
+                  >
+                    <TileLayer
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
+                    <Marker
+                      position={[selectedMapAlert.location_lat, selectedMapAlert.location_lng]}
+                      icon={panicIcon}
+                    >
+                      <Popup>
+                        <strong>{selectedMapAlert.displayCaseId}</strong>
+                        <br />
+                        {selectedMapAlert.location_lat.toFixed(5)}, {selectedMapAlert.location_lng.toFixed(5)}
+                      </Popup>
+                    </Marker>
+                  </MapContainer>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                  <a
+                    href={`https://maps.google.com/?q=${selectedMapAlert.location_lat},${selectedMapAlert.location_lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs text-blue-500 hover:underline font-medium"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> Open in Google Maps
+                  </a>
+
+                  {canManage && selectedMapAlert.status !== "acknowledged" && selectedMapAlert.status !== "resolved" && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={busyId === selectedMapAlert.id}
+                      onClick={() => handleAcknowledgeToReview(selectedMapAlert)}
+                      className="bg-amber-500 hover:bg-amber-600 text-black font-bold gap-1.5 text-xs"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Acknowledge → Awaiting Review
+                    </Button>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="py-10 text-center space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  GPS coordinates were not available from the sender&apos;s device when this alert fired.
+                </p>
+                {canManage && selectedMapAlert.status !== "acknowledged" && selectedMapAlert.status !== "resolved" && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => handleAcknowledgeToReview(selectedMapAlert)}
+                    className="bg-amber-500 hover:bg-amber-600 text-black font-bold gap-1.5 text-xs"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Acknowledge → Awaiting Review
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

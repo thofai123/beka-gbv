@@ -2,6 +2,7 @@ import express from "express";
 import { prisma } from "../db.js";
 import { requireAuth, requireRole } from "../auth.js";
 import { sendSms, normalizeZambianPhone, buildMapsLink } from "../lib/sms.js";
+import { sendEmail } from "../lib/email.js";
 import { randomCode, rateLimit } from "../lib/security.js";
 
 const router = express.Router();
@@ -50,13 +51,17 @@ router.post("/triggerEmergency", requireAuth, async (req, res, next) => {
         return res.json({
           success: true,
           case_id: existing.linked_case_id,
+          alert_id: existing.id,
           idempotent: true,
         });
       }
     }
 
+    const sender = await prisma.user.findUnique({ where: { email: req.user.email } }).catch(() => null);
+    const senderLabel = sender?.full_name ? `${sender.full_name} (${req.user.email})` : req.user.email;
     const caseRef = await nextCaseRef();
     const mapsLink = buildMapsLink(location_lat, location_lng);
+    const triggeredAt = new Date().toISOString();
 
     const panicAlert = await prisma.panicAlert.create({
       data: {
@@ -73,15 +78,17 @@ router.post("/triggerEmergency", requireAuth, async (req, res, next) => {
       data: {
         case_id: caseRef,
         incident_type: "other",
-        description: `Emergency panic alert triggered by ${req.user.email}`,
+        description: `Emergency SOS alert triggered by ${senderLabel}${mapsLink ? " — Location: " + mapsLink : ""}`,
         status: "dispatched",
         risk_level: "critical",
         report_source: "panic_alert",
+        survivor_name: sender?.full_name || null,
+        survivor_contact: sender?.phone || req.user.email,
         reporter_email: req.user.email,
         reporter_user_id: req.user.sub,
         location_lat: location_lat ?? null,
         location_lng: location_lng ?? null,
-        location_description: mapsLink || null,
+        location_description: mapsLink || "GPS unavailable at trigger time",
         channel: "app",
         created_by: req.user.email,
       },
@@ -93,29 +100,62 @@ router.post("/triggerEmergency", requireAuth, async (req, res, next) => {
     });
 
     await notifyStaff(
-      "🚨 Panic alert",
-      `A panic alert (${caseRef}) was triggered.${mapsLink ? " Location: " + mapsLink : ""}`,
+      `🚨 Emergency Alert (${caseRef})`,
+      `${senderLabel} triggered an emergency alert.${mapsLink ? " Location: " + mapsLink : ""}`,
       "panic_alert",
       newCase.id,
     );
 
-    // Notify the survivor's emergency contacts by SMS (best-effort).
+    // Notify admins/responders via email as well (best-effort)
+    const staff = await prisma.user.findMany({
+      where: { role: { in: ["admin", "responder"] } },
+    });
+    await Promise.all(
+      staff.map((s) =>
+        sendEmail({
+          to: s.email,
+          subject: `🚨 BEKA EMERGENCY ALERT [${caseRef}] — ${sender?.full_name || req.user.email}`,
+          html: `
+            <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:16px;border:1px solid #ef4444;border-radius:12px;">
+              <h2 style="color:#dc2626;margin-top:0;">🚨 Emergency SOS Triggered</h2>
+              <p><strong>Case ID:</strong> ${caseRef}</p>
+              <p><strong>User:</strong> ${senderLabel}</p>
+              <p><strong>Phone:</strong> ${sender?.phone || "Not on file"}</p>
+              <p><strong>Time:</strong> ${triggeredAt}</p>
+              <p><strong>Location:</strong> ${mapsLink ? `<a href="${mapsLink}">${mapsLink}</a>` : "GPS unavailable"}</p>
+            </div>
+          `,
+          text: `EMERGENCY SOS [${caseRef}] from ${senderLabel} at ${triggeredAt}. Location: ${mapsLink || "Unavailable"}`,
+        }).catch(() => ({ ok: false }))
+      )
+    );
+
+    // Notify the survivor's emergency contacts by SMS + Email (if email exists)
     const contactWhere = { created_by: req.user.email };
-    if (Array.isArray(selected_contact_ids)) {
+    if (Array.isArray(selected_contact_ids) && selected_contact_ids.length > 0) {
       contactWhere.id = { in: selected_contact_ids };
     }
     const contacts = await prisma.emergencyContact.findMany({
       where: contactWhere,
+      orderBy: { priority: "asc" },
     });
+
+    const smsText = `BEKA EMERGENCY [${caseRef}]: ${sender?.full_name || req.user.email} needs urgent help!${mapsLink ? " Location: " + mapsLink : ""}`;
+
     const smsResults = await Promise.all(
-      contacts.map((c) =>
-        sendSms(
-          c.phone,
-          `Emergency alert: ${req.user.email} may need help.${
-            c.notify_location && mapsLink ? " Location: " + mapsLink : ""
-          }`,
-        ).catch(() => ({ ok: false })),
-      ),
+      contacts.map(async (c) => {
+        const msg = `BEKA EMERGENCY [${caseRef}]: ${sender?.full_name || req.user.email} needs urgent help!${c.notify_location && mapsLink ? " Location: " + mapsLink : ""}`;
+        const smsRes = c.phone ? await sendSms(c.phone, msg).catch(() => ({ ok: false })) : { ok: false };
+        if (c.email) {
+          await sendEmail({
+            to: c.email,
+            subject: `🚨 Emergency Alert from ${sender?.full_name || req.user.email} [${caseRef}]`,
+            text: msg,
+            html: `<p><strong>🚨 Emergency Alert [${caseRef}]</strong></p><p>${msg}</p>`,
+          }).catch(() => ({ ok: false }));
+        }
+        return smsRes;
+      }),
     );
 
     res.json({
@@ -123,7 +163,11 @@ router.post("/triggerEmergency", requireAuth, async (req, res, next) => {
       case_id: newCase.id,
       case_ref: caseRef,
       alert_id: panicAlert.id,
+      sms_message: smsText,
+      maps_link: mapsLink,
+      contacts: contacts.map((c) => ({ id: c.id, name: c.name, phone: c.phone })),
       contacts_notified: smsResults.filter((r) => r.ok).length,
+      sms_skipped: smsResults.some((r) => r.skipped),
     });
   } catch (e) { next(e); }
 });
