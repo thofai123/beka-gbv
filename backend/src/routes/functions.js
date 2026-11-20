@@ -8,6 +8,37 @@ import { randomCode, rateLimit } from "../lib/security.js";
 const router = express.Router();
 
 // Generate the next GBV-YYYY-NNNN case reference.
+
+async function reverseGeocodeArea(lat, lng) {
+  if (lat == null || lng == null) return null;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3500);
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=17&addressdetails=1`;
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { "User-Agent": "BEKA-Safe4All/1.0 (emergency-response)" },
+    });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const addr = data?.address || {};
+    const parts = [
+      addr.road || addr.pedestrian || addr.suburb || addr.neighbourhood,
+      addr.city_district || addr.town || addr.city || addr.county,
+      addr.state,
+    ].filter(Boolean);
+    const unique = [...new Set(parts)];
+    if (unique.length > 0) return unique.join(", ");
+    if (data?.display_name) {
+      return data.display_name.split(",").slice(0, 3).map((s) => s.trim()).join(", ");
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 async function nextCaseRef() {
   const year = new Date().getFullYear();
   const latest = await prisma.case.findFirst({
@@ -61,6 +92,12 @@ router.post("/triggerEmergency", requireAuth, async (req, res, next) => {
     const senderLabel = sender?.full_name ? `${sender.full_name} (${req.user.email})` : req.user.email;
     const caseRef = await nextCaseRef();
     const mapsLink = buildMapsLink(location_lat, location_lng);
+    const areaName = await reverseGeocodeArea(location_lat, location_lng);
+    const formattedLocation = areaName
+      ? `${areaName} (${Number(location_lat).toFixed(5)}, ${Number(location_lng).toFixed(5)})`
+      : mapsLink
+      ? `GPS ${Number(location_lat).toFixed(5)}, ${Number(location_lng).toFixed(5)}`
+      : "GPS unavailable at trigger time";
     const triggeredAt = new Date().toISOString();
 
     const panicAlert = await prisma.panicAlert.create({
@@ -74,11 +111,14 @@ router.post("/triggerEmergency", requireAuth, async (req, res, next) => {
       },
     });
 
+    const reportArea = !b.location_description && b.location_lat != null && b.location_lng != null
+      ? await reverseGeocodeArea(b.location_lat, b.location_lng)
+      : null;
     const newCase = await prisma.case.create({
       data: {
         case_id: caseRef,
         incident_type: "other",
-        description: `Emergency SOS alert triggered by ${senderLabel}${mapsLink ? " — Location: " + mapsLink : ""}`,
+        description: `Emergency SOS alert triggered by ${senderLabel} — Area: ${formattedLocation}`,
         status: "dispatched",
         risk_level: "critical",
         report_source: "panic_alert",
@@ -88,7 +128,7 @@ router.post("/triggerEmergency", requireAuth, async (req, res, next) => {
         reporter_user_id: req.user.sub,
         location_lat: location_lat ?? null,
         location_lng: location_lng ?? null,
-        location_description: mapsLink || "GPS unavailable at trigger time",
+        location_description: formattedLocation,
         channel: "app",
         created_by: req.user.email,
       },
@@ -140,7 +180,7 @@ router.post("/triggerEmergency", requireAuth, async (req, res, next) => {
       orderBy: { priority: "asc" },
     });
 
-    const smsText = `BEKA EMERGENCY [${caseRef}]: ${sender?.full_name || req.user.email} needs urgent help!${mapsLink ? " Location: " + mapsLink : ""}`;
+    const smsText = `BEKA EMERGENCY [${caseRef}]: ${sender?.full_name || req.user.email} needs urgent help!${areaName ? " Area: " + areaName : ""}${mapsLink ? " Map: " + mapsLink : ""}`;
 
     const smsResults = await Promise.all(
       contacts.map(async (c) => {
@@ -194,7 +234,7 @@ router.post("/submitReport", requireAuth, async (req, res, next) => {
         location_lat: b.location_lat ?? null,
         location_lng: b.location_lng ?? null,
         location_captured_at: b.location_captured_at || null,
-        location_description: b.location_description || null,
+        location_description: b.location_description || reportArea || null,
         attachments: Array.isArray(b.attachments) ? b.attachments : [],
         report_source: "report",
         channel: b.channel || "app",

@@ -231,6 +231,14 @@ export default function AlertsMap() {
                       <Clock className="w-3 h-3" />
                       {moment(alert.created_date).format("MMM D, YYYY · HH:mm:ss")} ({moment(alert.created_date).fromNow()})
                     </p>
+                    {(alert.linkedCase?.location_description || hasCoords) && (
+                      <p className="text-xs text-orange-300 mt-1 flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" />
+                        <span>
+                          {alert.linkedCase?.location_description || `GPS ${alert.location_lat.toFixed(5)}, ${alert.location_lng.toFixed(5)}`}
+                        </span>
+                      </p>
+                    )}
                   </div>
 
                   {phone && (

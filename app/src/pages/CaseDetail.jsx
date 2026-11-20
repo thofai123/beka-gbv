@@ -396,10 +396,24 @@ export default function CaseDetail() {
       <div className={cardClass}>
         <SectionLabel>Incident Details</SectionLabel>
         <p className="text-sm leading-relaxed">{caseData.description}</p>
-        {caseData.location_description && (
-          <div className="flex items-start gap-2 mt-3 text-sm text-muted-foreground">
-            <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-            <span>{caseData.location_description}</span>
+        {(caseData.location_description || (caseData.location_lat != null && caseData.location_lng != null)) && (
+          <div className="mt-3 space-y-1">
+            <div className="flex items-start gap-2 text-sm text-foreground font-medium">
+              <MapPin className="w-4 h-4 mt-0.5 text-orange-500 flex-shrink-0" />
+              <span>
+                {caseData.location_description || `GPS ${Number(caseData.location_lat).toFixed(5)}, ${Number(caseData.location_lng).toFixed(5)}`}
+              </span>
+            </div>
+            {caseData.location_lat != null && caseData.location_lng != null && (
+              <a
+                href={`https://maps.google.com/?q=${caseData.location_lat},${caseData.location_lng}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 ml-6 text-xs text-blue-400 hover:underline font-semibold"
+              >
+                Open Exact Location in Google Maps ↗
+              </a>
+            )}
           </div>
         )}
         <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">

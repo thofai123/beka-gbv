@@ -143,7 +143,7 @@ const AuthenticatedApp = () => {
 const RoutedScreens = ({ location }) => {
   const direction = useNavigationDirection();
   return (
-    <AnimatePresence mode="wait" initial={false}>
+    <AnimatePresence initial={false}>
       <PageTransition key={location.pathname} direction={direction}>
         <Suspense fallback={<RouteFallback />}>
           <Routes location={location}>
@@ -176,6 +176,12 @@ const RoutedScreens = ({ location }) => {
   );
 };
 
+import { useParams } from "react-router-dom";
+function LegacyCaseRedirect() {
+  const { id } = useParams();
+  return <Navigate to={id ? `/beka/cases/${id}` : "/beka/cases"} replace />;
+}
+
 function App() {
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -206,7 +212,7 @@ function App() {
               <Route path="/admin" element={<AdminApp />} />
               <Route path="/beka/*" element={<AuthenticatedApp />} />
               <Route path="/cases" element={<Navigate to="/beka/cases" replace />} />
-              <Route path="/cases/:id" element={<Navigate to="/beka/cases" replace />} />
+              <Route path="/cases/:id" element={<LegacyCaseRedirect />} />
               <Route path="/alerts-map" element={<Navigate to="/beka/alerts-map" replace />} />
               <Route path="/team" element={<Navigate to="/beka/team" replace />} />
               <Route path="/analytics" element={<Navigate to="/beka/analytics" replace />} />

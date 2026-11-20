@@ -431,6 +431,25 @@ export default function CaseList() {
                       <p className="text-xs text-muted-foreground line-clamp-2">{c.description}</p>
                     )}
 
+                    {(c.location_description || (c.location_lat != null && c.location_lng != null)) && (
+                      <div className="flex items-center justify-between gap-2 text-[11px] text-orange-300/90 bg-orange-500/10 border border-orange-500/20 rounded-lg px-2.5 py-1">
+                        <span className="truncate">
+                          📍 {c.location_description || `GPS ${Number(c.location_lat).toFixed(4)}, ${Number(c.location_lng).toFixed(4)}`}
+                        </span>
+                        {c.location_lat != null && c.location_lng != null && (
+                          <a
+                            href={`https://maps.google.com/?q=${c.location_lat},${c.location_lng}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-blue-400 hover:underline font-semibold flex-shrink-0"
+                          >
+                            Map ↗
+                          </a>
+                        )}
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/60">
                       <span className="text-[11px] font-mono text-muted-foreground flex items-center gap-1">
                         <Clock className="w-3 h-3" />

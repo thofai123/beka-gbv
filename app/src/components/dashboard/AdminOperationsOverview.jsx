@@ -1,7 +1,3 @@
-// Compact operational summary cards for the admin home.
-// Keeps the exact same card styling as before — only the metrics are operationally focused:
-// Open Cases · Active Panic Alerts · Awaiting Review · Resolved Today.
-
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { FileText, AlertTriangle, Inbox, CheckCircle2, ChevronRight } from "lucide-react";
@@ -9,31 +5,68 @@ import moment from "moment";
 import { useCases, usePanicAlerts, useLiveEntityInvalidation } from "@/hooks/useEntityQueries";
 import { CaseService } from "@/services/CaseService";
 import { PanicAlertService } from "@/services/PanicAlertService";
-import { CLOSED_CASE_STATUSES, ACTIVE_PANIC_ALERT_STATUSES } from "@/constants/appConstants";
+
+const OPEN_STATUSES = new Set(["received", "dispatched"]);
+const REVIEW_STATUSES = new Set(["acknowledged", "in_progress", "escalated"]);
+const RESOLVED_STATUSES = new Set(["resolved", "closed"]);
 
 export default function AdminOperationsOverview() {
   const navigate = useNavigate();
-  const { data: alerts = [], isLoading: loadingAlerts } = usePanicAlerts({}, { sort: "-created_date", limit: 100 });
+  const { data: alerts = [], isLoading: loadingAlerts } = usePanicAlerts({}, { sort: "-created_date", limit: 300 });
   const { data: cases = [], isLoading: loadingCases } = useCases({}, { sort: "-created_date", limit: 500 });
 
-  useLiveEntityInvalidation(CaseService, [["cases"]]);
-  useLiveEntityInvalidation(PanicAlertService, [["panicAlerts"]]);
+  useLiveEntityInvalidation(CaseService, [["cases"], ["panicAlerts"]]);
+  useLiveEntityInvalidation(PanicAlertService, [["panicAlerts"], ["cases"]]);
 
   const loading = loadingAlerts || loadingCases;
 
-  const openCases = cases.filter((c) => !CLOSED_CASE_STATUSES.includes(c.status));
-  const activeAlerts = alerts.filter((a) => ACTIVE_PANIC_ALERT_STATUSES.includes(a.status));
-  const awaitingReview = cases.filter((c) => ["received", "reported"].includes(c.status));
+  const openCases = cases.filter((c) => OPEN_STATUSES.has(c.status));
+  const activeAlerts = alerts.filter((a) => a.status === "triggered" || a.status === "escalated");
+  const awaitingReview = cases.filter((c) => REVIEW_STATUSES.has(c.status));
   const startOfToday = moment().startOf("day");
   const resolvedToday = cases.filter(
-    (c) => CLOSED_CASE_STATUSES.includes(c.status) && moment(c.updated_date || c.resolved_at).isSameOrAfter(startOfToday)
+    (c) =>
+      RESOLVED_STATUSES.has(c.status) &&
+      moment(c.resolved_at || c.updated_date || c.created_date).isSameOrAfter(startOfToday)
   );
 
   const cards = [
-    { label: "Open Cases", value: openCases.length, icon: FileText, color: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/30", to: "/cases" },
-    { label: "Active Alerts", value: activeAlerts.length, icon: AlertTriangle, color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/30", to: "/alerts-map" },
-    { label: "Awaiting Review", value: awaitingReview.length, icon: Inbox, color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/30", to: "/cases" },
-    { label: "Resolved Today", value: resolvedToday.length, icon: CheckCircle2, color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/30", to: "/cases" },
+    {
+      label: "Open Cases",
+      value: openCases.length,
+      icon: FileText,
+      color: "text-orange-400",
+      bg: "bg-orange-500/10",
+      border: "border-orange-500/30",
+      to: "/beka/cases?filter=open",
+    },
+    {
+      label: "Active Alerts",
+      value: activeAlerts.length,
+      icon: AlertTriangle,
+      color: "text-red-400",
+      bg: "bg-red-500/10",
+      border: "border-red-500/30",
+      to: "/beka/alerts-map",
+    },
+    {
+      label: "Awaiting Review",
+      value: awaitingReview.length,
+      icon: Inbox,
+      color: "text-yellow-400",
+      bg: "bg-yellow-500/10",
+      border: "border-yellow-500/30",
+      to: "/beka/cases?filter=awaiting_review",
+    },
+    {
+      label: "Resolved Today",
+      value: resolvedToday.length,
+      icon: CheckCircle2,
+      color: "text-green-400",
+      bg: "bg-green-500/10",
+      border: "border-green-500/30",
+      to: "/beka/cases?filter=resolved",
+    },
   ];
 
   return (
@@ -49,9 +82,10 @@ export default function AdminOperationsOverview() {
         {cards.map((c, i) => (
           <motion.button
             key={c.label}
-            initial={{ opacity: 0, y: 10 }}
+            type="button"
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.25, delay: i * 0.04 }}
             whileTap={{ scale: 0.96 }}
             onClick={() => navigate(c.to)}
             className={`text-left p-4 rounded-2xl border ${c.border} ${c.bg} backdrop-blur-sm relative overflow-hidden group`}
