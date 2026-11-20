@@ -28,20 +28,21 @@ router.post("/register", async (req, res, next) => {
     }
 
     const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing && existing.email_verified) {
+    if (existing && existing.email_verified && existing.password_hash) {
       return res.status(409).json({
         message: "An account with this email already exists. Please sign in instead.",
       });
     }
 
     let user;
-    if (existing && !existing.email_verified) {
+    if (existing) {
       // Incomplete registration: update details & automatically resend fresh verification code
       user = await prisma.user.update({
         where: { email },
         data: {
           password_hash: await hashPassword(password),
           ...(full_name ? { full_name } : {}),
+          ...(existing.role === "admin" || existing.role === "responder" ? { email_verified: true } : {}),
         },
       });
       await prisma.twoFactorCode.updateMany({

@@ -17,7 +17,8 @@ export default function BottomTabBar() {
   const leftTabs = isAdmin ?
   [
   { label: t("home"), icon: Home, path: "/beka/" },
-  { label: "Cases", icon: FileText, path: "/beka/cases" }] :
+  { label: "Cases", icon: FileText, path: "/beka/cases" },
+  { label: t("resources"), icon: LifeBuoy, path: "/beka/resources" }] :
 
   [
   { label: t("home"), icon: Home, path: "/beka/" },

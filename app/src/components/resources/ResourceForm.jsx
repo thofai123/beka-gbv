@@ -19,12 +19,13 @@ const EMPTY = {
   is_active: true,
 };
 
-export default function ResourceForm({ open, initial, onClose, onSave }) {
+export default function ResourceForm({ open, initial, customCategories = [], onClose, onSave }) {
+  const [customTabName, setCustomTabName] = useState("");
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) setForm({ ...EMPTY, ...(initial || {}) });
+    if (open) { setForm({ ...EMPTY, ...(initial || {}) }); setCustomTabName(""); }
   }, [open, initial]);
 
   const handle = (k) => (e) => setForm((f) => ({ ...f, [k]: e?.target ? e.target.value : e }));
@@ -34,7 +35,13 @@ export default function ResourceForm({ open, initial, onClose, onSave }) {
   const submit = async () => {
     if (!canSubmit) return;
     setSaving(true);
-    await onSave(form);
+    const payload = { ...form };
+    if (payload.type === "__new__" && customTabName.trim()) {
+      const slug = customTabName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+      payload.type = slug || "custom_tab";
+      payload.category_label = customTabName.trim();
+    }
+    await onSave(payload);
     setSaving(false);
   };
 
@@ -62,8 +69,20 @@ export default function ResourceForm({ open, initial, onClose, onSave }) {
                 <SelectItem value="legal_aid">Legal Aid Support</SelectItem>
                 <SelectItem value="emergency_response">Emergency Response</SelectItem>
                 <SelectItem value="gbv_support">GBV Support Service</SelectItem>
+                {customCategories.map((c) => (
+                  <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>
+                ))}
+                <SelectItem value="__new__">+ Create New Resource Tab...</SelectItem>
               </SelectContent>
             </Select>
+            {form.type === "__new__" && (
+              <Input
+                className="mt-2"
+                value={customTabName}
+                onChange={(e) => setCustomTabName(e.target.value)}
+                placeholder="Enter new tab name (e.g. Medical Clinics)"
+              />
+            )}
           </div>
           <div>
             <Label className="text-xs">Short description</Label>

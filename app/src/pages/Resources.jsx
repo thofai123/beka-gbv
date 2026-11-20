@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { Search, Plus, LifeBuoy, X } from "lucide-react";
-import CategoryGrid from "../components/resources/CategoryGrid";
+import CategoryGrid, { DEFAULT_RESOURCE_CATS } from "../components/resources/CategoryGrid";
 import ResourceListCard from "../components/resources/ResourceListCard";
 import ResourceForm from "../components/resources/ResourceForm";
 import LanguageChips from "../components/resources/LanguageChips";
@@ -65,7 +65,7 @@ export default function Resources() {
   const { t } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
-  const initialTab = CATEGORY_KEYS.includes(requestedTab) ? requestedTab : "vsu";
+  const initialTab = requestedTab || "vsu";
 
   const [user, setUser] = useState(null);
   const [resources, setResources] = useState(() => BUILTIN_ZAMBIA_HELPLINES);
@@ -79,7 +79,7 @@ export default function Resources() {
 
   useEffect(() => {
     const tabParam = searchParams.get("tab");
-    if (tabParam && CATEGORY_KEYS.includes(tabParam) && tabParam !== activeCategory) {
+    if (tabParam && tabParam !== activeCategory) {
       setActiveCategory(tabParam);
       requestAnimationFrame(() => {
         listRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -139,14 +139,26 @@ export default function Resources() {
     load();
   }, []);
 
+  const customCategories = useMemo(() => {
+    const baseKeys = new Set(DEFAULT_RESOURCE_CATS.map((c) => c.key));
+    const map = new Map();
+    resources.forEach((r) => {
+      if (r.type && !baseKeys.has(r.type) && !map.has(r.type)) {
+        const label = r.category_label || r.type.replace(/_/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase());
+        map.set(r.type, { key: r.type, label, desc: "Custom support resource", icon: LifeBuoy, color: "#e05028" });
+      }
+    });
+    return Array.from(map.values());
+  }, [resources]);
+
   const counts = useMemo(() => {
     const c = {};
-    CATEGORY_KEYS.forEach((k) => (c[k] = 0));
+    [...CATEGORY_KEYS, ...customCategories.map((x) => x.key)].forEach((k) => (c[k] = 0));
     resources.forEach((r) => {
-      if (c[r.type] != null) c[r.type] += 1;
+      c[r.type] = (c[r.type] || 0) + 1;
     });
     return c;
-  }, [resources]);
+  }, [resources, customCategories]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -170,7 +182,8 @@ export default function Resources() {
       toast({ title: "Resource updated" });
     } else {
       await ResourceService.create(data);
-      toast({ title: "Resource added" });
+      if (data.type) setActiveCategory(data.type);
+      toast({ title: "Resource & tab saved" });
     }
     setFormOpen(false);
     setEditing(null);
@@ -231,7 +244,7 @@ export default function Resources() {
 
       <div className="max-w-3xl lg:max-w-6xl mx-auto space-y-5 lg:space-y-8 px-4 lg:px-6 pt-4 pb-6">
         {/* Categories */}
-        <CategoryGrid active={activeCategory} counts={counts} onSelect={handleSelectCategory} />
+        <CategoryGrid active={activeCategory} counts={counts} customCategories={customCategories} onSelect={handleSelectCategory} />
 
         {/* GBV-only: language selector + emergency banner */}
         {isGbv && (
@@ -297,6 +310,7 @@ export default function Resources() {
           <ResourceForm
             open={formOpen}
             initial={editing}
+            customCategories={customCategories}
             onClose={() => {
               setFormOpen(false);
               setEditing(null);

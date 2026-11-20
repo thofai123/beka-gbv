@@ -20,11 +20,13 @@ function tint(hex, alpha) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-export default function CategoryGrid({ active, counts, onSelect }) {
+export const DEFAULT_RESOURCE_CATS = CATS;
+
+export default function CategoryGrid({ active, counts, customCategories = [], onSelect }) {
   const { t } = useLanguage();
   return (
     <div className="grid grid-cols-2 gap-3">
-      {CATS.map((c, i) => {
+      {[...CATS, ...customCategories].map((c, i) => {
         const Icon = c.icon;
         const isActive = active === c.key;
         return (

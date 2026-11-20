@@ -493,4 +493,107 @@ router.post("/whatsappWebhook", async (req, res) => {
   res.json({ received: true });
 });
 
+
+// POST /functions/verifyAdminPin
+router.post("/verifyAdminPin", requireAuth, requireRole("admin"), (req, res) => {
+  const expectedPin = process.env.ADMIN_TEAM_PIN || "1126";
+  const provided = String(req.body?.pin || "").trim();
+  if (provided !== expectedPin) {
+    return res.status(403).json({ valid: false, message: "Incorrect Admin PIN." });
+  }
+  return res.json({ valid: true });
+});
+
+// POST /functions/inviteAdmin
+router.post("/inviteAdmin", requireAuth, requireRole("admin"), async (req, res, next) => {
+  try {
+    const expectedPin = process.env.ADMIN_TEAM_PIN || "1126";
+    const pin = String(req.body?.pin || "").trim();
+    if (pin !== expectedPin) {
+      return res.status(403).json({ message: "Invalid Admin PIN (1126 required)." });
+    }
+
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    const fullName = String(req.body?.full_name || "").trim();
+    const phone = String(req.body?.phone || "").trim();
+    const profilePicture = req.body?.profile_picture ? String(req.body.profile_picture).trim() : null;
+
+    if (!email || !email.includes("@")) {
+      return res.status(400).json({ message: "A valid email address is required." });
+    }
+    if (!fullName) {
+      return res.status(400).json({ message: "Full name is required." });
+    }
+    if (!phone) {
+      return res.status(400).json({ message: "Contact phone line is required." });
+    }
+
+    const tempPassword = "BEKA-" + Math.random().toString(36).slice(2, 8).toUpperCase() + "!";
+    const { hashPassword } = await import("../auth.js");
+    const existing = await prisma.user.findUnique({ where: { email } });
+
+    let adminUser;
+    if (existing) {
+      adminUser = await prisma.user.update({
+        where: { email },
+        data: {
+          role: "admin",
+          full_name: fullName,
+          phone,
+          email_verified: true,
+          ...(profilePicture ? { profile_picture: profilePicture } : {}),
+          ...(!existing.password_hash ? { password_hash: await hashPassword(tempPassword) } : {}),
+        },
+      });
+    } else {
+      adminUser = await prisma.user.create({
+        data: {
+          email,
+          full_name: fullName,
+          phone,
+          role: "admin",
+          email_verified: true,
+          password_hash: await hashPassword(tempPassword),
+          profile_picture: profilePicture,
+          created_by: req.user.email,
+        },
+      });
+    }
+
+    const appUrl = process.env.FRONTEND_URL || "https://beka-app.onrender.com/beka/login";
+    const inviter = req.user.email;
+    const credsHtml = existing?.password_hash
+      ? "<p>Sign in with your existing BEKA account password to access the Admin Console immediately.</p>"
+      : `<p><strong>Temporary Password:</strong> <code style="background:#f3f4f6;padding:4px 8px;border-radius:6px;font-size:14px;">${tempPassword}</code></p><p>Use this email and temporary password to sign in (you can reset your password anytime from the login screen).</p>`;
+
+    const emailRes = await sendEmail({
+      to: email,
+      subject: "BEKA — You have been assigned Admin Console Access",
+      html: `
+        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:20px;border:1px solid #e5e7eb;border-radius:12px;">
+          <h2 style="color:#e05028;margin-top:0;">BEKA Admin Access Granted</h2>
+          <p>Hello <strong>${fullName}</strong>,</p>
+          <p><strong>${inviter}</strong> has added you as an <strong>Administrator</strong> on the BEKA Emergency Response Platform.</p>
+          <p><strong>Assigned Details:</strong><br/>Email: ${email}<br/>Phone: ${phone}</p>
+          ${credsHtml}
+          <p style="margin-top:20px;">
+            <a href="${appUrl}" style="display:inline-block;background:#e05028;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:700;">
+              Open BEKA Admin Console
+            </a>
+          </p>
+        </div>
+      `,
+      text: `Hello ${fullName}, you have been granted BEKA Admin access by ${inviter}. Login at ${appUrl} with email ${email}${existing?.password_hash ? "" : " and temporary password: " + tempPassword}`,
+    }).catch((err) => ({ ok: false, error: err?.message || "SMTP error" }));
+
+    const { password_hash, ...safeUser } = adminUser;
+    res.status(201).json({
+      success: true,
+      user: safeUser,
+      email_sent: !!emailRes?.ok,
+      email_error: emailRes?.ok ? null : (emailRes?.error || "Email notification could not be delivered"),
+    });
+  } catch (e) { next(e); }
+});
+
 export default router;
