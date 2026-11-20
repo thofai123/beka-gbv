@@ -79,13 +79,24 @@ router.post("/register", async (req, res, next) => {
 
     if (!emailResult.ok) {
       console.error(`[register] OTP email failed for ${email}:`, emailResult.error || "unknown error");
+      const verifiedUser = await prisma.user.update({
+        where: { email },
+        data: { email_verified: true },
+      });
+      const access_token = signToken(verifiedUser);
+      return res.status(201).json({
+        ...publicUser(verifiedUser),
+        email,
+        otp_sent: false,
+        auto_verified: true,
+        access_token,
+      });
     }
 
     res.status(201).json({
       ...publicUser(user),
       email,
-      otp_sent: emailResult.ok,
-      ...(emailResult.ok ? {} : { email_error: emailResult.error || "Could not send verification email" }),
+      otp_sent: true,
     });
   } catch (e) { next(e); }
 });
@@ -100,9 +111,13 @@ router.post("/login", async (req, res, next) => {
       return res.status(429).json({ message: "Too many failed sign-in attempts. Please wait a few minutes and try again." });
     }
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || !(await comparePassword(password, user.password_hash))) {
+    if (!user) {
       recordFailure(loginKey, 10 * 60 * 1000);
-      return res.status(401).json({ message: "Invalid email or password" });
+      return res.status(404).json({ message: "No account found with this email. Please create an account first." });
+    }
+    if (!user.password_hash || !(await comparePassword(password, user.password_hash))) {
+      recordFailure(loginKey, 10 * 60 * 1000);
+      return res.status(401).json({ message: "Incorrect password. Please try again or tap Forgot password." });
     }
     clearFailures(loginKey);
     const access_token = signToken(user);

@@ -1,4 +1,4 @@
-// Email delivery via Gmail HTTPS Bridge (Google Apps Script) or SMTP fallback.
+// Email delivery via Brevo HTTPS API, Gmail HTTPS Bridge, or SMTP fallback.
 import nodemailer from "nodemailer";
 
 let transporter = null;
@@ -16,23 +16,65 @@ function getTransporter() {
     port,
     secure: port === 465,
     auth: { user, pass },
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 15000,
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 10000,
   });
   return transporter;
 }
 
+function parseFrom(rawFrom) {
+  const match = String(rawFrom || "").match(/^(.*?)<([^>]+)>$/);
+  if (match) {
+    return { name: match[1].trim().replace(/^"|"$/g, "") || "BEKA Safe4All", email: match[2].trim() };
+  }
+  return { name: "BEKA Safe4All", email: String(rawFrom || "mthofai@gmail.com").trim() };
+}
+
 export async function sendEmail({ to, subject, html, text }) {
   const rawFrom = process.env.SMTP_FROM || "BEKA Safe4All <mthofai@gmail.com>";
+  const sender = parseFrom(rawFrom);
 
-  // 1. Gmail HTTPS Bridge (Google Apps Script Web App — sends over HTTPS 443, never blocked by Render)
+  // 1. Brevo Transactional Email HTTP API (HTTPS 443 — fast & reliable on Render)
+  if (process.env.BREVO_API_KEY) {
+    try {
+      const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        signal: AbortSignal.timeout(8000),
+        headers: {
+          "api-key": process.env.BREVO_API_KEY,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          sender,
+          to: [{ email: to }],
+          subject,
+          htmlContent: html || `<p>${text || ""}</p>`,
+          ...(text ? { textContent: text } : {}),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const errMsg = data?.message || `Brevo HTTP ${res.status}`;
+        console.error(`[email] Brevo failed for ${to}:`, errMsg);
+        return { ok: false, error: errMsg };
+      }
+      return { ok: true, messageId: data?.messageId || "brevo-api" };
+    } catch (err) {
+      console.error(`[email] Brevo network error for ${to}:`, err.message);
+      return { ok: false, error: err.message };
+    }
+  }
+
+  // 2. Gmail HTTPS Bridge (Google Apps Script Web App)
   const gmailWebhookUrl = process.env.GMAIL_WEBHOOK_URL;
   const gmailWebhookSecret = process.env.GMAIL_WEBHOOK_SECRET;
   if (gmailWebhookUrl && gmailWebhookSecret) {
     try {
       const res = await fetch(gmailWebhookUrl, {
         method: "POST",
+        signal: AbortSignal.timeout(8000),
         headers: { "Content-Type": "application/json" },
         redirect: "follow",
         body: JSON.stringify({
@@ -55,7 +97,7 @@ export async function sendEmail({ to, subject, html, text }) {
     }
   }
 
-  // 2. Fallback to Nodemailer SMTP
+  // 3. Fallback to Nodemailer SMTP
   const t = getTransporter();
   if (!t) {
     console.warn(`[email] No email provider configured — skipping email to ${to}: "${subject}"`);

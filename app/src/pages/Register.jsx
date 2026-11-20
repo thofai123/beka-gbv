@@ -79,6 +79,11 @@ export default function Register() {
         password,
         name: name.trim(),
       });
+      if (res && res.auto_verified && res.access_token) {
+        apiClient.auth.setToken(res.access_token);
+        window.location.href = "/beka/";
+        return;
+      }
       if (res && res.otp_sent === false) {
         setError(res.email_error || "Account created, but verification email could not be sent. Tap Resend below.");
       } else {
