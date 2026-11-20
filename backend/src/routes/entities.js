@@ -186,7 +186,7 @@ router.post("/:name", async (req, res, next) => {
 
     const data = { ...req.body };
     delete data.id;
-    if (req.user?.email && data.created_by === undefined) data.created_by = req.user.email;
+    if (req.user?.email && (!data.created_by || !isStaff(req.user))) data.created_by = req.user.email;
 
     const created = await model.create({ data });
     res.status(201).json(created);

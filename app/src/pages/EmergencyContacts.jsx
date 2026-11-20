@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/AuthContext";
 import { EmergencyContactService } from "@/services/EmergencyContactService";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ const PRIORITY_LABELS = ["Primary", "Secondary", "Tertiary", "Quaternary", "Quin
 
 export default function EmergencyContacts() {
   const { user: currentUser } = useAuth();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -49,8 +51,8 @@ export default function EmergencyContacts() {
         const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "[]");
         setContacts(cached);
       } else {
-        setContacts([]);
-        localStorage.removeItem(CACHE_KEY);
+        const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "[]");
+        setContacts(cached);
       }
     }
     setLoading(false);
@@ -118,8 +120,8 @@ export default function EmergencyContacts() {
           relationship: "",
           priority: currentList.length + 1,
           notify_location: true,
-          created_by: currentUser.email,
-          user_id: currentUser.id,
+          ...(currentUser?.email ? { created_by: currentUser.email } : {}),
+          ...(currentUser?.id ? { user_id: currentUser.id } : {}),
         });
         currentList.push(created);
         currentSelected.push(created.id);
@@ -129,7 +131,7 @@ export default function EmergencyContacts() {
       setContacts(currentList);
       setSelectedIds(currentSelected);
       setSelectedContactIds(currentSelected);
-      cacheLocally(currentList);
+      cacheLocally(currentList); queryClient.invalidateQueries({ queryKey: ["emergencyContacts"] });
       setSaving(false);
 
       if (addedCount > 0) {
@@ -169,15 +171,15 @@ export default function EmergencyContacts() {
         relationship: draft.relationship.trim(),
         priority: contacts.length + 1,
         notify_location: draft.notify_location,
-        created_by: currentUser.email,
-        user_id: currentUser.id,
+        ...(currentUser?.email ? { created_by: currentUser.email } : {}),
+        ...(currentUser?.id ? { user_id: currentUser.id } : {}),
       });
       const next = [...contacts, created];
       const nextSel = [...selectedIds, created.id];
       setSelectedIds(nextSel);
       setSelectedContactIds(nextSel);
       setContacts(next);
-      cacheLocally(next);
+      cacheLocally(next); queryClient.invalidateQueries({ queryKey: ["emergencyContacts"] });
       setDraft({ name: "", phone: "", relationship: "", notify_location: true });
       setAdding(false);
       toast({ title: "Contact added" });
@@ -223,7 +225,7 @@ export default function EmergencyContacts() {
       await EmergencyContactService.update(editingId, updatedData);
       const next = contacts.map((c) => c.id === editingId ? { ...c, ...updatedData } : c);
       setContacts(next);
-      cacheLocally(next);
+      cacheLocally(next); queryClient.invalidateQueries({ queryKey: ["emergencyContacts"] });
       cancelEdit();
       toast({ title: "Contact updated" });
     } catch (e) {
@@ -266,7 +268,7 @@ export default function EmergencyContacts() {
     [next[idx], next[j]] = [next[j], next[idx]];
     next.forEach((c, i) => { c.priority = i + 1; });
     setContacts(next);
-    cacheLocally(next);
+    cacheLocally(next); queryClient.invalidateQueries({ queryKey: ["emergencyContacts"] });
     await Promise.all(next.map((c) => EmergencyContactService.update(c.id, { priority: c.priority }).catch(() => {})));
   };
 
