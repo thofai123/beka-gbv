@@ -97,7 +97,9 @@ export default function Dashboard() {
     toast({
       title: result?.sent ? `🚨 ${customTitle} Sent (${caseRef})` : "Alert Saved Offline",
       description: result?.sent
-        ? `Responders notified · ${locationText}`
+        ? (smsDelivered > 0
+            ? `SMS automatically sent to ${smsDelivered} contact(s) · ${locationText}`
+            : `Responders alerted · ${locationText}`)
         : "Will auto-send as soon as internet reconnects.",
     });
 
@@ -114,18 +116,7 @@ export default function Dashboard() {
       smsDelivered,
     });
 
-    // If server SMS gateway is unconfigured/skipped or offline, automatically open the phone's native SMS app pre-addressed to all emergency contacts
-    if (resolvedContacts.length > 0 && smsDelivered === 0) {
-      const phones = resolvedContacts
-        .map((c) => String(c.phone || "").replace(/[^\d+]/g, ""))
-        .filter(Boolean);
-      if (phones.length > 0) {
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent || "");
-        const sep = isIOS ? "&" : "?";
-        const recipientList = phones.join(",");
-        window.location.href = `sms:${recipientList}${sep}body=${encodeURIComponent(fallbackMessage)}`;
-      }
-    }
+    // Background SMS is dispatched automatically via SMSala/Africala on the backend
 
     setPanicPhase("idle");
   };
