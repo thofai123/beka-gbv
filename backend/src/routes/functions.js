@@ -217,6 +217,22 @@ router.post("/submitReport", requireAuth, async (req, res, next) => {
   try {
     const b = req.body || {};
     const caseRef = await nextCaseRef();
+    const submitter = await prisma.user.findUnique({ where: { email: req.user.email } }).catch(() => null);
+
+    const reportArea = !b.location_description && b.location_lat != null && b.location_lng != null
+      ? await reverseGeocodeArea(b.location_lat, b.location_lng)
+      : null;
+
+    const attachments = Array.isArray(b.attachments) ? b.attachments.filter(Boolean) : [];
+    const resolvedName = b.is_anonymous
+      ? null
+      : (b.survivor_name || submitter?.full_name || [submitter?.first_name, submitter?.last_name].filter(Boolean).join(" ") || null);
+    const resolvedContact = b.is_anonymous
+      ? null
+      : (b.survivor_contact || submitter?.phone || req.user.email || null);
+    const resolvedEmail = b.is_anonymous
+      ? null
+      : (b.reporter_email || req.user.email || null);
 
     const newCase = await prisma.case.create({
       data: {
@@ -227,29 +243,56 @@ router.post("/submitReport", requireAuth, async (req, res, next) => {
         risk_level: b.risk_level || "medium",
         ai_summary: b.ai_summary || null,
         is_anonymous: !!b.is_anonymous,
-        reporter_email: b.is_anonymous ? null : (b.reporter_email || req.user.email),
+        reporter_email: resolvedEmail,
         reporter_user_id: b.is_anonymous ? null : (b.reporter_user_id || req.user.sub),
-        survivor_name: b.survivor_name || null,
-        survivor_contact: b.survivor_contact || null,
+        survivor_name: resolvedName,
+        survivor_contact: resolvedContact,
         location_lat: b.location_lat ?? null,
         location_lng: b.location_lng ?? null,
         location_captured_at: b.location_captured_at || null,
         location_description: b.location_description || reportArea || null,
-        attachments: Array.isArray(b.attachments) ? b.attachments : [],
+        attachments,
         report_source: "report",
         channel: b.channel || "app",
         created_by: req.user.email,
       },
     });
 
+    // Also mirror every uploaded attachment into EvidenceVault linked to this case so admins see all scene photos immediately
+    if (attachments.length > 0) {
+      await Promise.all(
+        attachments.map((url, idx) => {
+          const isImg = /\.(png|jpe?g|gif|webp|heic)$/i.test(url);
+          const isAudio = /\.(mp3|wav|ogg|m4a)$/i.test(url);
+          return prisma.evidenceVault.create({
+            data: {
+              file_url: url,
+              file_name: decodeURIComponent(String(url).split("/").pop() || `Attachment-${idx + 1}`),
+              file_type: isImg ? "photo" : isAudio ? "audio" : "document",
+              description: `Submitted with incident report ${caseRef}`,
+              case_id: newCase.id,
+              case_ref: caseRef,
+              is_sensitive: true,
+              created_by: req.user.email,
+            },
+          }).catch(() => null);
+        })
+      );
+    }
+
     await notifyStaff(
       "New incident report",
-      `A new ${b.incident_type} report (${caseRef}) was submitted.`,
+      `A new ${b.incident_type} report (${caseRef}) was submitted${resolvedName ? " by " + resolvedName : ""}.`,
       "case_update",
       newCase.id,
     );
 
-    res.json(newCase);
+    res.json({
+      ...newCase,
+      success: true,
+      case_id: newCase.id,
+      case_ref: caseRef,
+    });
   } catch (e) { next(e); }
 });
 

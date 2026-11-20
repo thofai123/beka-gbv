@@ -420,9 +420,19 @@ export default function CaseList() {
                         <p className="text-sm font-mono font-bold text-foreground truncate">
                           {c.case_id || "Unnamed case"}
                         </p>
-                        <p className="text-xs text-muted-foreground truncate mt-0.5">
-                          {c.survivor_name || c.reporter_email || "Anonymous"}
+                        <p className="text-xs font-medium text-foreground/90 truncate mt-0.5">
+                          {c.survivor_name || c.reporter_email || c.created_by || "Anonymous"}
                         </p>
+                        {(c.survivor_contact || c.reporter_email) && (
+                          <p className="text-[11px] font-mono text-muted-foreground truncate">
+                            {[c.survivor_contact, c.reporter_email].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(" · ")}
+                          </p>
+                        )}
+                        {Array.isArray(c.attachments) && c.attachments.length > 0 && (
+                          <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/30 text-[10px] font-semibold">
+                            📷 {c.attachments.length} photo(s) attached
+                          </span>
+                        )}
                       </div>
                       <StatusBadge status={c.status} />
                     </div>

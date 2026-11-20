@@ -227,6 +227,11 @@ export default function AlertsMap() {
                     <p className="text-xs font-medium text-foreground mt-1 flex items-center gap-1.5">
                       <User className="w-3.5 h-3.5 text-muted-foreground" /> {sender}
                     </p>
+                    {(phone || alert.created_by) && (
+                      <p className="text-[11px] font-mono text-muted-foreground mt-0.5">
+                        {[phone, alert.created_by].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(" · ")}
+                      </p>
+                    )}
                     <p className="text-[11px] font-mono text-muted-foreground mt-0.5 flex items-center gap-1.5">
                       <Clock className="w-3 h-3" />
                       {moment(alert.created_date).format("MMM D, YYYY · HH:mm:ss")} ({moment(alert.created_date).fromNow()})

@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import {
-  MapPin, User, MessageSquare, Loader2, X, FileText,
+  MapPin, User, Phone, Mail, MessageSquare, Loader2, X, FileText,
   Image, FileVideo, FileAudio, FileDown, Send
 } from "lucide-react";
 import RiskBadge from "../components/RiskBadge";
@@ -337,6 +337,31 @@ export default function CaseDetail() {
     );
   }
 
+
+  const combinedEvidence = (() => {
+    const seenUrls = new Set();
+    const list = [];
+    for (const ev of evidence) {
+      if (ev?.file_url) seenUrls.add(ev.file_url);
+      list.push(ev);
+    }
+    const rawAttachments = Array.isArray(caseData?.attachments) ? caseData.attachments : [];
+    rawAttachments.forEach((url, idx) => {
+      if (!url || seenUrls.has(url)) return;
+      seenUrls.add(url);
+      const isImg = /\.(png|jpe?g|gif|webp|heic)$/i.test(url);
+      const isAudio = /\.(mp3|wav|ogg|m4a)$/i.test(url);
+      list.push({
+        id: `att-${idx}`,
+        file_url: url,
+        file_name: decodeURIComponent(String(url).split("/").pop() || `Scene Photo ${idx + 1}`),
+        file_type: isImg ? "photo" : isAudio ? "audio" : "document",
+        created_date: caseData?.created_date,
+      });
+    });
+    return list;
+  })();
+
   const isAdmin = user?.role === "admin";
   const isStaff = isAdmin || user?.role === "responder";
   const statusActions = ["acknowledged", "in_progress", "resolved"];
@@ -416,10 +441,62 @@ export default function CaseDetail() {
             )}
           </div>
         )}
-        <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-          <User className="w-4 h-4 flex-shrink-0" />
-          <span>{caseData.survivor_name || (caseData.is_anonymous ? "Anonymous" : "Unknown")}</span>
-        </div>
+      </div>
+
+      {/* Victim / Reporter Contact Card */}
+      <div className={cardClass}>
+        <SectionLabel>Victim / Reporter Details</SectionLabel>
+        {caseData.is_anonymous && !caseData.survivor_name && !caseData.survivor_contact && !caseData.reporter_email ? (
+          <p className="text-sm text-muted-foreground">Submitted anonymously</p>
+        ) : (
+          <div className="space-y-2.5 text-sm">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-muted-foreground flex items-center gap-1.5">
+                <User className="w-4 h-4" /> Name
+              </span>
+              <span className="font-semibold text-foreground">
+                {caseData.survivor_name || caseData.reporter_email || caseData.created_by || "Not provided"}
+              </span>
+            </div>
+
+            {caseData.survivor_contact && !caseData.survivor_contact.includes("@") && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <Phone className="w-4 h-4" /> Phone
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-semibold">{caseData.survivor_contact}</span>
+                  <a
+                    href={`tel:${caseData.survivor_contact}`}
+                    className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[11px] font-bold"
+                  >
+                    Call
+                  </a>
+                  <a
+                    href={`sms:${caseData.survivor_contact}`}
+                    className="px-2 py-0.5 rounded-md bg-orange-500/15 text-orange-400 border border-orange-500/30 text-[11px] font-bold"
+                  >
+                    SMS
+                  </a>
+                </div>
+              </div>
+            )}
+
+            {(caseData.reporter_email || (caseData.survivor_contact && caseData.survivor_contact.includes("@")) || caseData.created_by) && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <Mail className="w-4 h-4" /> Email
+                </span>
+                <a
+                  href={`mailto:${caseData.reporter_email || (caseData.survivor_contact?.includes("@") ? caseData.survivor_contact : caseData.created_by)}`}
+                  className="text-xs font-mono text-blue-400 hover:underline truncate max-w-[210px]"
+                >
+                  {caseData.reporter_email || (caseData.survivor_contact?.includes("@") ? caseData.survivor_contact : caseData.created_by)}
+                </a>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Assigned Responder */}
@@ -477,32 +554,61 @@ export default function CaseDetail() {
         </div>
       )}
 
-      {/* Evidence */}
+      {/* Evidence & Scene Photos */}
       <div className={cardClass}>
-        <SectionLabel>Evidence{evidence.length > 0 ? ` · ${evidence.length}` : ""}</SectionLabel>
-        {evidence.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-3">No evidence attached</p>
+        <SectionLabel>Scene Photos &amp; Evidence{combinedEvidence.length > 0 ? ` · ${combinedEvidence.length}` : ""}</SectionLabel>
+        {combinedEvidence.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-3">No photos or evidence attached</p>
         ) : (
-          <div className="space-y-2">
-            {evidence.map((item) => (
-              <div key={item.id} className="flex items-center gap-3">
-                <EvidenceIcon fileType={item.file_type} fileUrl={item.file_url} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm truncate">{item.file_name}</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {relativeTime(item.created_date)}
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs h-7 px-3"
-                  onClick={() => setPreviewItem(item)}
-                >
-                  View
-                </Button>
+          <div className="space-y-3">
+            {/* Image Thumbnail Grid */}
+            {combinedEvidence.some((item) => item.file_type === "photo" || /\.(png|jpe?g|gif|webp|heic)$/i.test(item.file_url || "")) && (
+              <div className="grid grid-cols-2 gap-2.5">
+                {combinedEvidence
+                  .filter((item) => item.file_type === "photo" || /\.(png|jpe?g|gif|webp|heic)$/i.test(item.file_url || ""))
+                  .map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setPreviewItem(item)}
+                      className="group relative rounded-xl overflow-hidden border border-border bg-black/40 aspect-video focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    >
+                      <img
+                        src={resolveFileUrl(item.file_url)}
+                        alt={item.file_name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      />
+                      <span className="absolute bottom-1.5 right-1.5 px-2 py-0.5 rounded bg-black/75 text-white text-[10px] font-semibold">
+                        Tap to view
+                      </span>
+                    </button>
+                  ))}
               </div>
-            ))}
+            )}
+
+            {/* Full Item List */}
+            <div className="space-y-2">
+              {combinedEvidence.map((item) => (
+                <div key={item.id} className="flex items-center gap-3 p-2 rounded-xl bg-muted/30">
+                  <EvidenceIcon fileType={item.file_type} fileUrl={item.file_url} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm truncate">{item.file_name}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {relativeTime(item.created_date)}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-7 px-3"
+                    onClick={() => setPreviewItem(item)}
+                  >
+                    View
+                  </Button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
