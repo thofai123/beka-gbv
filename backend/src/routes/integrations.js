@@ -194,20 +194,7 @@ function fallbackGuide(query = "") {
   };
 }
 
-// POST /integrations/llm -> Gemini AI Quick-Access Guide & Risk Assessment
-router.post("/llm", requireAuth, async (req, res) => {
-  const { mode, query, prompt } = req.body || {};
-  const apiKey = process.env.GEMINI_API_KEY;
-
-  if (mode === "assistant") {
-    const userQuery = String(query || "").trim();
-    if (!apiKey || apiKey === "YOUR_ACTUAL_GEMINI_API_KEY") {
-      return res.json(fallbackGuide(userQuery));
-    }
-
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-      const systemInstruction = `You are BEKA AI, a compassionate, trauma-informed quick-access guide embedded inside BEKA, a Gender-Based Violence (GBV) and Technology-Facilitated GBV (TFGBV) emergency response app in Zambia.
+const ASSISTANT_SYSTEM_INSTRUCTION = `You are BEKA AI, a compassionate, trauma-informed quick-access guide embedded inside BEKA, a Gender-Based Violence (GBV) and Technology-Facilitated GBV (TFGBV) emergency response app in Zambia.
 Your job is to immediately understand what a user is asking for and connect them to the exact app page, Resources department tab, or Zambian helpline number.
 
 Available BEKA app routes and Resources tabs (ONLY use routes from this list or direct "tel:..." links):
@@ -219,93 +206,207 @@ Available BEKA app routes and Resources tabs (ONLY use routes from this list or 
 - "/beka/messages" -> Confidential Support Chat
 - "/beka/resources?tab=vsu" -> VSU Units Tab (Zambia Police Victim Support Unit)
 - "/beka/resources?tab=osc" -> One-Stop Centers Tab:
-  * Lifeline Zambia (933): Toll-free, 24/7 counseling and support for adults regarding gender-based violence (GBV), mental health, substance abuse, and HIV/AIDS.
+  - Lifeline Zambia (933): Toll-free, 24/7 counseling and support for adults regarding gender-based violence (GBV), mental health, substance abuse, and HIV/AIDS.
 - "/beka/resources?tab=shelter" -> Shelters Tab:
-  * Temporary shelters and safe houses in Zambia coordinated through YWCA Zambia, Lifeline/Childline (933 / 116), and the Department of Social Welfare. Exact street addresses of domestic violence safe houses are kept confidential and shared only after intake screening.
+  - Temporary shelters and safe houses in Zambia coordinated through YWCA Zambia, Lifeline/Childline (933 / 116), and the Department of Social Welfare. Exact street addresses of domestic violence safe houses are kept confidential and shared only after intake screening.
 - "/beka/resources?tab=child_protection" -> Child Protection Tab:
-  * Childline Zambia (116): Toll-free, 24/7 confidential counseling, guidance, and referral services for children and youth dealing with abuse, bullying, child marriage, mental health, and online safety.
+  - Childline Zambia (116): Toll-free, 24/7 confidential counseling, guidance, and referral services for children and youth dealing with abuse, bullying, child marriage, mental health, and online safety.
 - "/beka/resources?tab=counseling" -> Counseling Tab:
-  * Lifeline Zambia (933): Free telephone, WhatsApp, and online chat counselling for adults (mental health, stress, depression, suicide prevention, substance abuse, grief, GBV, HIV/AIDS).
-  * Childline Zambia (116): Free 24/7 psychosocial counselling and referrals for children, teenagers, and young people.
-  * Mental Health Users Network of Zambia: +260 21 123 7191 (non-profit mental health support NGO).
+  - Lifeline Zambia (933): Free telephone, WhatsApp, and online chat counselling for adults (mental health, stress, depression, suicide prevention, substance abuse, grief, GBV, HIV/AIDS).
+  - Childline Zambia (116): Free 24/7 psychosocial counselling and referrals for children, teenagers, and young people.
+  - Mental Health Users Network of Zambia: +260 21 123 7191 (non-profit mental health support NGO).
 - "/beka/resources?tab=legal_aid" -> Legal Aid Tab:
-  * Legal Aid Board of Zambia: +260 211 256454, hotline +260 977 123456, or WhatsApp +260 766 881526 (Mon–Fri, 8:00 AM – 5:00 PM) for free or subsidized legal assistance.
+  - Legal Aid Board of Zambia: +260 211 256454, hotline +260 977 123456, or WhatsApp +260 766 881526 (Mon–Fri, 8:00 AM – 5:00 PM) for free or subsidized legal assistance.
 - "/beka/resources?tab=emergency_response" -> Emergency Response Tab:
-  * Police Emergency: 991 (toll-free) or 0211-220006
-  * General Emergency Assistance: 999 (toll-free) or 0211-236644 / 0211-702664
-  * Ambulance Services: 991 (toll-free) or 0211-220180
-  * Zambia Fire Brigade: 993 (toll-free) or 02-11220180
-  * Road Transport & Safety Agency (RTSA): 983 (toll-free) or +260 955 983 983
+  - Police Emergency: 991 (toll-free) or 0211-220006
+  - General Emergency Assistance: 999 (toll-free) or 0211-236644 / 0211-702664
+  - Ambulance Services: 991 (toll-free) or 0211-220180
+  - Zambia Fire Brigade: 993 (toll-free) or 02-11220180
+  - Road Transport & Safety Agency (RTSA): 983 (toll-free) or +260 955 983 983
 
 Rules:
 1. Keep "reply" warm, clear, and concise (1 to 3 sentences), quoting the exact relevant phone numbers/hours from the knowledge base above.
 2. Set "urgent" to true if the user mentions immediate danger, physical threat, fire, medical emergency, suicide crisis, or needing urgent rescue/shelter.
 3. Return 2 to 4 relevant "actions" pointing directly to the matching "/beka/resources?tab=..." route, app route, or "tel:..." number so they can tap straight through.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: userQuery || "Give me a quick overview of what I can do in this app.",
-        config: {
-          systemInstruction,
-          temperature: 0.25,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              urgent: { type: Type.BOOLEAN },
-              reply: { type: Type.STRING },
-              actions: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    label: { type: Type.STRING },
-                    description: { type: Type.STRING },
-                    route: { type: Type.STRING },
+async function runGrokStructured({ messages, schemaName, schema, temperature = 0.25 }) {
+  const xaiKey = process.env.XAI_API_KEY;
+  if (!xaiKey || xaiKey === "YOUR_ACTUAL_XAI_API_KEY") {
+    throw new Error("XAI_API_KEY not configured");
+  }
+
+  const res = await fetch("https://api.x.ai/v1/chat/completions", {
+    method: "POST",
+    signal: AbortSignal.timeout(12000),
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${xaiKey}`,
+    },
+    body: JSON.stringify({
+      model: process.env.GROK_MODEL || "grok-3-mini",
+      temperature,
+      messages,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: schemaName,
+          strict: true,
+          schema,
+        },
+      },
+    }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data?.error?.message || `Grok HTTP ${res.status}`);
+  }
+  const rawText = data?.choices?.[0]?.message?.content;
+  if (!rawText) throw new Error("Empty Grok response");
+  return JSON.parse(rawText);
+}
+
+// POST /integrations/llm -> Automatic Multi-AI Router (Gemini primary -> Grok failover -> Offline guide)
+router.post("/llm", requireAuth, async (req, res) => {
+  const { mode, query, prompt } = req.body || {};
+  const geminiKey = process.env.GEMINI_API_KEY;
+  const hasGemini = Boolean(geminiKey && geminiKey !== "YOUR_ACTUAL_GEMINI_API_KEY");
+
+  if (mode === "assistant") {
+    const userQuery = String(query || "").trim() || "Give me a quick overview of what I can do in this app.";
+
+    // 1. Try Google Gemini first
+    if (hasGemini) {
+      try {
+        const ai = new GoogleGenAI({ apiKey: geminiKey });
+        const response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: userQuery,
+          config: {
+            systemInstruction: ASSISTANT_SYSTEM_INSTRUCTION,
+            temperature: 0.25,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                urgent: { type: Type.BOOLEAN },
+                reply: { type: Type.STRING },
+                actions: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      label: { type: Type.STRING },
+                      description: { type: Type.STRING },
+                      route: { type: Type.STRING },
+                    },
+                    required: ["label", "description", "route"],
                   },
-                  required: ["label", "description", "route"],
                 },
               },
+              required: ["urgent", "reply", "actions"],
             },
-            required: ["urgent", "reply", "actions"],
           },
+        });
+        return res.json(JSON.parse(response.text));
+      } catch (err) {
+        console.warn("[LLM] Gemini unavailable, failing over to Grok:", err.message);
+      }
+    }
+
+    // 2. Automatic Failover to xAI Grok
+    try {
+      const grokResult = await runGrokStructured({
+        schemaName: "beka_assistant_response",
+        temperature: 0.25,
+        messages: [
+          { role: "system", content: ASSISTANT_SYSTEM_INSTRUCTION },
+          { role: "user", content: userQuery },
+        ],
+        schema: {
+          type: "object",
+          properties: {
+            urgent: { type: "boolean" },
+            reply: { type: "string" },
+            actions: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  label: { type: "string" },
+                  description: { type: "string" },
+                  route: { type: "string" },
+                },
+                required: ["label", "description", "route"],
+                additionalProperties: false,
+              },
+            },
+          },
+          required: ["urgent", "reply", "actions"],
+          additionalProperties: false,
         },
       });
-
-      const parsed = JSON.parse(response.text);
-      return res.json(parsed);
+      return res.json(grokResult);
     } catch (err) {
-      console.error("Gemini assistant error:", err.message);
+      console.warn("[LLM] Grok unavailable, using built-in helpline router:", err.message);
       return res.json(fallbackGuide(userQuery));
     }
   }
 
-  // Existing risk assessment mode
-  if (!apiKey || apiKey === "YOUR_ACTUAL_GEMINI_API_KEY" || !prompt) {
+  // Risk Assessment Mode (Gemini primary -> Grok failover -> safe default)
+  if (!prompt) {
     return res.json({ risk_level: "medium", ai_summary: "" });
   }
 
-  try {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: String(prompt),
-      config: {
-        temperature: 0.2,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            risk_level: { type: Type.STRING },
-            ai_summary: { type: Type.STRING },
+  if (hasGemini) {
+    try {
+      const ai = new GoogleGenAI({ apiKey: geminiKey });
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: String(prompt),
+        config: {
+          temperature: 0.2,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              risk_level: { type: Type.STRING },
+              ai_summary: { type: Type.STRING },
+            },
+            required: ["risk_level", "ai_summary"],
           },
-          required: ["risk_level", "ai_summary"],
         },
+      });
+      return res.json(JSON.parse(response.text));
+    } catch (err) {
+      console.warn("[LLM] Gemini risk assessment failed, failing over to Grok:", err.message);
+    }
+  }
+
+  try {
+    const grokRisk = await runGrokStructured({
+      schemaName: "beka_risk_assessment",
+      temperature: 0.2,
+      messages: [
+        {
+          role: "system",
+          content: "Assess the incident report risk level (low, medium, high, or critical) and provide a concise trauma-informed summary.",
+        },
+        { role: "user", content: String(prompt) },
+      ],
+      schema: {
+        type: "object",
+        properties: {
+          risk_level: { type: "string" },
+          ai_summary: { type: "string" },
+        },
+        required: ["risk_level", "ai_summary"],
+        additionalProperties: false,
       },
     });
-    return res.json(JSON.parse(response.text));
+    return res.json(grokRisk);
   } catch (err) {
-    console.error("Gemini risk assessment error:", err.message);
+    console.warn("[LLM] Grok risk assessment unavailable:", err.message);
     return res.json({ risk_level: "medium", ai_summary: "" });
   }
 });
