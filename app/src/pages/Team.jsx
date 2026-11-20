@@ -52,11 +52,23 @@ const specLabels = {
 };
 
 async function uploadPhotoFile(file) {
+  if (apiClient?.integrations?.Core?.UploadFile) {
+    const res = await apiClient.integrations.Core.UploadFile({ file });
+    if (res?.file_url) return res.file_url;
+  }
   const formData = new FormData();
   formData.append("file", file);
-  const token = localStorage.getItem("beka_access_token") || localStorage.getItem("access_token") || "";
+  const token =
+    apiClient?.getToken?.() ||
+    localStorage.getItem("beka_token") ||
+    localStorage.getItem("token") ||
+    localStorage.getItem("auth_token") ||
+    localStorage.getItem("beka_access_token") ||
+    localStorage.getItem("access_token") ||
+    "";
   const res = await fetch("/integrations/upload", {
     method: "POST",
+    credentials: "include",
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: formData,
   });
