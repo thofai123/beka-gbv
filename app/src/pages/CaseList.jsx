@@ -15,7 +15,8 @@ import {
   Calendar,
   ArrowUpDown,
   Loader2,
-} Camera from "lucide-react";
+, Camera
+} from "lucide-react";
 import StatusBadge from "../components/StatusBadge";
 import SkeletonCard from "../components/SkeletonCard";
 import { Link, useSearchParams } from "react-router-dom";
