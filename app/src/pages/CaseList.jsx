@@ -418,9 +418,7 @@ export default function CaseList() {
               const raw = [
                 ...(Array.isArray(c.attachments) ? c.attachments : []),
                 ...(Array.isArray(c.screenshots) ? c.screenshots.map((s) => (typeof s === "string" ? s : s?.url)) : []),
-                ...(evidencePhotosByCase.get(c.id) || []),
-                ...(evidencePhotosByCase.get(c.case_id) || []),
-              ].filter((u) => u && isImg(u));
+                ].filter((u) => u && isImg(u));
               return [...new Set(raw)];
             })();
             const hasEvidencePhoto = casePhotos.length > 0;
