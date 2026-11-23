@@ -1,3 +1,4 @@
+import { EvidenceService } from "@/services/EvidenceService";
 import { resolveFileUrl } from "@/lib/file-url";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { cacheAll, getAll } from "../lib/offlineCache";
@@ -59,6 +60,20 @@ export default function CaseList() {
   const initialFilter = searchParams.get("filter") || "all";
 
   const [cases, setCases] = useState([]);
+  const [evidenceList, setEvidenceList] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    EvidenceService.list("-created_date", 300)
+      .then((rows) => { if (active) setEvidenceList(Array.isArray(rows) ? rows : []); })
+      .catch(() => {});
+    const unsub = EvidenceService.subscribe(() => {
+      EvidenceService.list("-created_date", 300)
+        .then((rows) => { if (active) setEvidenceList(Array.isArray(rows) ? rows : []); })
+        .catch(() => {});
+    });
+    return () => { active = false; unsub?.(); };
+  }, []);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [stageTab, setStageTab] = useState(initialFilter); // all | open | awaiting_review | resolved
@@ -87,6 +102,30 @@ export default function CaseList() {
       window.removeEventListener("offline", handleOffline);
     };
   }, []);
+
+
+  const isNonImageDocOrAudio = (u) => /\.(mp3|wav|ogg|m4a|webm|aac|pdf|doc|docx|xls|xlsx|csv|txt)(\?.*)?$/i.test(String(u || "").trim());
+  const isImageLike = (u) => {
+    const s = String(u || "").trim();
+    if (!s || isNonImageDocOrAudio(s)) return false;
+    return /^data:image\//i.test(s) || /\.(png|jpe?g|gif|webp|heic|bmp|svg)(\?.*)?$/i.test(s) || s.includes("/files/") || s.startsWith("http") || s.startsWith("/");
+  };
+
+  const getPhotosForCase = (c) => {
+    if (!c) return [];
+    const ids = new Set([c.id, c.case_id].filter(Boolean).map(String));
+    const vaultPhotos = evidenceList
+      .filter((ev) => ids.has(String(ev.case_id || "")) || ids.has(String(ev.case_ref || "")))
+      .filter((ev) => ev.file_type === "photo" || isImageLike(ev.file_url || ev.url))
+      .map((ev) => ev.file_url || ev.url);
+
+    const attPhotos = (Array.isArray(c.attachments) ? c.attachments : []).filter(isImageLike);
+    const shotPhotos = (Array.isArray(c.screenshots) ? c.screenshots : [])
+      .map((s) => (typeof s === "string" ? s : s?.url || s?.file_url))
+      .filter(isImageLike);
+
+    return [...new Set([...vaultPhotos, ...attPhotos, ...shotPhotos])];
+  };
 
   const loadCases = useCallback(async () => {
     setLoading(true);
