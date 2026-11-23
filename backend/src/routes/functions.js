@@ -259,12 +259,15 @@ router.post("/submitReport", requireAuth, async (req, res, next) => {
     if (attachments.length > 0) {
       await Promise.all(
         attachments.map((url, idx) => {
-          const isImg = /\.(png|jpe?g|gif|webp|heic)$/i.test(url);
+          const isImg = /^data:image\//i.test(url) || /\.(png|jpe?g|gif|webp|heic)$/i.test(url);
           const isAudio = /\.(mp3|wav|ogg|m4a)$/i.test(url);
+          const cleanName = String(url).startsWith("data:")
+            ? `Scene-Photo-${idx + 1}.${isImg ? "jpg" : "bin"}`
+            : decodeURIComponent(String(url).split("/").pop() || `Attachment-${idx + 1}`);
           return prisma.evidenceVault.create({
             data: {
               file_url: url,
-              file_name: decodeURIComponent(String(url).split("/").pop() || `Attachment-${idx + 1}`),
+              file_name: cleanName,
               file_type: isImg ? "photo" : isAudio ? "audio" : "document",
               description: `Submitted with incident report ${caseRef}`,
               case_id: newCase.id,

@@ -115,7 +115,7 @@ export default function EvidenceVault() {
                 )}
 
                 <div className="flex gap-2 mt-3">
-                  <a href={resolveFileUrl(file.file_url)} target="_blank" rel="noopener noreferrer" className="flex-1">
+                  <a href={resolveFileUrl(file.file_url)} download={file.file_name || "evidence"} target="_blank" rel="noopener noreferrer" className="flex-1">
                     <Button variant="outline" size="sm" className="w-full gap-1.5 h-8 text-xs">
                       <Download className="w-3 h-3" /> Download
                     </Button>
