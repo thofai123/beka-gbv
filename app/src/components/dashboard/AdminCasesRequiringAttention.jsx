@@ -5,7 +5,7 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { AlertTriangle, ChevronRight, Clock } from "lucide-react";
+import { AlertTriangle, ChevronRight, Clock } , Camera from "lucide-react";
 import moment from "moment";
 import { useCases, useLiveEntityInvalidation } from "@/hooks/useEntityQueries";
 import { CaseService } from "@/services/CaseService";
@@ -100,6 +100,11 @@ export default function AdminCasesRequiringAttention({ tick }) {
                   <span className="text-[9px] capitalize text-blue-300 bg-blue-500/15 px-1.5 py-0.5 rounded">
                     {formatLabel(c.status)}
                   </span>
+                  {Array.isArray(c.attachments) && c.attachments.some((u) => /^data:image\//i.test(String(u || "")) || /\.(png|jpe?g|gif|webp|heic)$/i.test(String(u || ""))) && (
+                    <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-sky-300 bg-sky-500/15 border border-sky-500/30 px-1.5 py-0.5 rounded">
+                      <Camera className="w-2.5 h-2.5" /> Photo attached
+                    </span>
+                  )}
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 text-white/30 flex-shrink-0" />

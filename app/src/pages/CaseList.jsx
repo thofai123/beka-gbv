@@ -15,7 +15,7 @@ import {
   Calendar,
   ArrowUpDown,
   Loader2,
-} from "lucide-react";
+} Camera from "lucide-react";
 import StatusBadge from "../components/StatusBadge";
 import SkeletonCard from "../components/SkeletonCard";
 import { Link, useSearchParams } from "react-router-dom";
@@ -428,11 +428,17 @@ export default function CaseList() {
                             {[c.survivor_contact, c.reporter_email].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(" · ")}
                           </p>
                         )}
-                        {Array.isArray(c.attachments) && c.attachments.length > 0 && (
-                          <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/30 text-[10px] font-semibold">
-                            📷 {c.attachments.length} photo(s) attached
-                          </span>
-                        )}
+                        {(() => {
+                          const photoCount = Array.isArray(c.attachments)
+                            ? c.attachments.filter((u) => /^data:image\//i.test(String(u || "")) || /\.(png|jpe?g|gif|webp|heic)$/i.test(String(u || ""))).length
+                            : 0;
+                          if (photoCount <= 0) return null;
+                          return (
+                            <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/30 text-[10px] font-semibold">
+                              <Camera className="w-3 h-3" /> {photoCount} evidence {photoCount === 1 ? "photo" : "photos"} attached
+                            </span>
+                          );
+                        })()}
                       </div>
                       <StatusBadge status={c.status} />
                     </div>

@@ -1,3 +1,4 @@
+import { resolveFileUrl } from "@/lib/file-url";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import {
@@ -11,7 +12,7 @@ import {
   ExternalLink,
   Loader2,
   FileText,
-} from "lucide-react";
+} , Camera from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -192,6 +193,10 @@ export default function AlertsMap() {
             const phone = alert.phone || alert.user_phone || alert.linkedCase?.survivor_contact;
             const sender = alert.user_name || alert.linkedCase?.survivor_name || alert.created_by || "Unknown User";
             const isBusy = busyId === alert.id;
+            const alertPhotos = [
+              ...(Array.isArray(alert.attachments) ? alert.attachments : []),
+              ...(Array.isArray(alert.linkedCase?.attachments) ? alert.linkedCase.attachments : []),
+            ].filter((u) => /^data:image\//i.test(String(u || "")) || /\.(png|jpe?g|gif|webp|heic)$/i.test(String(u || "")));
 
             return (
               <div
@@ -208,6 +213,11 @@ export default function AlertsMap() {
                       <span className="text-sm font-mono font-bold text-foreground">
                         {alert.displayCaseId}
                       </span>
+                      {alertPhotos.length > 0 && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30 text-[10px] font-semibold">
+                          <Camera className="w-3 h-3" /> {alertPhotos.length} evidence {alertPhotos.length === 1 ? "photo" : "photos"} attached
+                        </span>
+                      )}
                       <Badge
                         className={
                           alert.status === "triggered"
@@ -255,6 +265,22 @@ export default function AlertsMap() {
                     </a>
                   )}
                 </div>
+
+                {alertPhotos.length > 0 && (
+                  <div className="flex items-center gap-2 pt-1">
+                    {alertPhotos.slice(0, 3).map((photoUrl, idx) => (
+                      <img
+                        key={idx}
+                        src={resolveFileUrl(photoUrl)}
+                        alt={`Evidence photo ${idx + 1}`}
+                        className="w-12 h-12 rounded-lg object-cover border border-sky-500/30 bg-black/40"
+                      />
+                    ))}
+                    <span className="text-[11px] text-sky-300/90 font-medium">
+                      Evidence picture attached — open case to inspect full view
+                    </span>
+                  </div>
+                )}
 
                 {/* Action Row: Open Location on Map + Acknowledge -> Awaiting Review + Open Case */}
                 <div className="flex flex-wrap gap-2 pt-2 border-t border-border/60">

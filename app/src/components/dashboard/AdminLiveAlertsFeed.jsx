@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Radio, MapPin, Clock, ChevronRight, CheckCircle2, Loader2, ExternalLink } from "lucide-react";
+import { Radio, MapPin, Clock, ChevronRight, CheckCircle2, Loader2, ExternalLink } , Camera from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import moment from "moment";
 import { useCases, useLiveEntityInvalidation, usePanicAlerts } from "@/hooks/useEntityQueries";
@@ -80,6 +80,10 @@ export default function AdminLiveAlertsFeed({ user, tick }) {
             const areaText =
               linked?.location_description ||
               (a.location_lat ? `${a.location_lat.toFixed(4)}, ${a.location_lng.toFixed(4)}` : "Location unavailable");
+            const alertPhotos = [
+              ...(Array.isArray(a.attachments) ? a.attachments : []),
+              ...(Array.isArray(linked?.attachments) ? linked.attachments : []),
+            ].filter((u) => /^data:image\//i.test(String(u || "")) || /\.(png|jpe?g|gif|webp|heic)$/i.test(String(u || "")));
             const mapsUrl =
               a.location_lat != null && a.location_lng != null
                 ? `https://maps.google.com/?q=${a.location_lat},${a.location_lng}`
@@ -100,9 +104,16 @@ export default function AdminLiveAlertsFeed({ user, tick }) {
                       {moment(a.created_date).fromNow()}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1 mt-0.5 text-[11px] text-white/70">
-                    <MapPin className="w-2.5 h-2.5 text-orange-400 flex-shrink-0" />
-                    <span className="truncate">{areaText}</span>
+                  <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-white/70 flex-wrap">
+                    <span className="inline-flex items-center gap-1 min-w-0 truncate">
+                      <MapPin className="w-2.5 h-2.5 text-orange-400 flex-shrink-0" />
+                      <span className="truncate">{areaText}</span>
+                    </span>
+                    {alertPhotos.length > 0 && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30 text-[9px] font-semibold flex-shrink-0">
+                        <Camera className="w-2.5 h-2.5" /> Photo ({alertPhotos.length})
+                      </span>
+                    )}
                   </div>
                   {mapsUrl && (
                     <a
