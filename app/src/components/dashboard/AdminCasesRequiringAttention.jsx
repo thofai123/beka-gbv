@@ -5,7 +5,7 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { AlertTriangle, ChevronRight, Clock } , Camera from "lucide-react";
+import { AlertTriangle, ChevronRight, Clock , Camera } from "lucide-react";
 import moment from "moment";
 import { useCases, useLiveEntityInvalidation } from "@/hooks/useEntityQueries";
 import { CaseService } from "@/services/CaseService";
