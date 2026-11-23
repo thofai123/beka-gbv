@@ -12,7 +12,9 @@ import {
   ExternalLink,
   Loader2,
   FileText,
-} , Camera from "lucide-react";
+,
+  Camera
+} from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
