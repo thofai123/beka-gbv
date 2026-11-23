@@ -1,3 +1,4 @@
+import { resolveFileUrl } from "@/lib/file-url";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { cacheAll, getAll } from "../lib/offlineCache";
 import OfflineBanner from "../components/OfflineBanner";
@@ -412,9 +413,25 @@ export default function CaseList() {
               ? c.resolved_at || c.updated_date || c.created_date
               : c.created_date;
 
+            const casePhotos = (() => {
+              const isImg = (u) => /^data:image\//i.test(String(u || "").trim()) || /\.(png|jpe?g|gif|webp|heic)$/i.test(String(u || "").trim());
+              const raw = [
+                ...(Array.isArray(c.attachments) ? c.attachments : []),
+                ...(Array.isArray(c.screenshots) ? c.screenshots.map((s) => (typeof s === "string" ? s : s?.url)) : []),
+                ...(evidencePhotosByCase.get(c.id) || []),
+                ...(evidencePhotosByCase.get(c.case_id) || []),
+              ].filter((u) => u && isImg(u));
+              return [...new Set(raw)];
+            })();
+            const hasEvidencePhoto = casePhotos.length > 0;
+
             return (
               <Link key={c.id} to={`/beka/cases/${c.id}`} className="block">
-                <div className="flex items-stretch bg-card border border-border rounded-xl overflow-hidden hover:border-orange-500/40 transition-colors">
+                <div className={`flex items-stretch bg-card rounded-xl overflow-hidden transition-all ${
+                  hasEvidencePhoto
+                    ? "border-2 border-sky-400/75 ring-1 ring-sky-400/25 bg-sky-500/[0.04] hover:border-sky-300"
+                    : "border border-border hover:border-orange-500/40"
+                }`}>
                   <div className={`w-1.5 flex-shrink-0 ${RISK_BORDER[c.risk_level] || "bg-muted"}`} />
                   <div className="p-3.5 flex-1 min-w-0 space-y-2">
                     <div className="flex items-start justify-between gap-2">
@@ -430,23 +447,40 @@ export default function CaseList() {
                             {[c.survivor_contact, c.reporter_email].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(" · ")}
                           </p>
                         )}
-                        {(() => {
-                          const photoCount = Array.isArray(c.attachments)
-                            ? c.attachments.filter((u) => /^data:image\//i.test(String(u || "")) || /\.(png|jpe?g|gif|webp|heic)$/i.test(String(u || ""))).length
-                            : 0;
-                          if (photoCount <= 0) return null;
-                          return (
-                            <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/30 text-[10px] font-semibold">
-                              <Camera className="w-3 h-3" /> {photoCount} evidence {photoCount === 1 ? "photo" : "photos"} attached
-                            </span>
-                          );
-                        })()}
+                        {hasEvidencePhoto && (
+                          <span className="inline-flex items-center gap-1 mt-1.5 px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-400/50 text-[10px] font-bold uppercase tracking-wide">
+                            <Camera className="w-3 h-3 text-sky-300" /> Evidence Photo Attached ({casePhotos.length})
+                          </span>
+                        )}
                       </div>
                       <StatusBadge status={c.status} />
                     </div>
 
                     {c.description && (
                       <p className="text-xs text-muted-foreground line-clamp-2">{c.description}</p>
+                    )}
+
+                    {hasEvidencePhoto && (
+                      <div className="flex items-center gap-2 p-2 rounded-lg bg-sky-500/10 border border-sky-400/30">
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {casePhotos.slice(0, 3).map((photoUrl, idx) => (
+                            <img
+                              key={idx}
+                              src={resolveFileUrl(photoUrl)}
+                              alt={`Evidence photo ${idx + 1}`}
+                              className="w-11 h-11 rounded-md object-cover border border-sky-300/40 bg-black/40"
+                            />
+                          ))}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-semibold text-sky-200 truncate">
+                            {casePhotos.length === 1 ? "1 evidence picture attached" : `${casePhotos.length} evidence pictures attached`}
+                          </p>
+                          <p className="text-[10px] text-sky-300/75 truncate">
+                            Tap card to view full-resolution photo
+                          </p>
+                        </div>
+                      </div>
                     )}
 
                     {(c.location_description || (c.location_lat != null && c.location_lng != null)) && (
