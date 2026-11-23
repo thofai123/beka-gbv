@@ -12,7 +12,6 @@ import {
   ExternalLink,
   Loader2,
   FileText,
-,
   Camera
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
