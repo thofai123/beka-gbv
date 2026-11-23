@@ -37,16 +37,16 @@ import { motion } from "framer-motion";
 
 const TEAM_PIN_SESSION_KEY = "beka_team_pin_unlocked";
 const TEAM_PIN_EXPIRY_KEY = "beka_team_pin_expires_at";
-const PIN_RENEWAL_MS = 5 * 60 * 1000; // 5 minutes
+
+function clearStoredPinSession() {
+  try {
+    sessionStorage.removeItem(TEAM_PIN_SESSION_KEY);
+    sessionStorage.removeItem(TEAM_PIN_EXPIRY_KEY);
+  } catch {}
+}
 
 function getStoredPinSession() {
-  try {
-    const expiresAt = Number(sessionStorage.getItem(TEAM_PIN_EXPIRY_KEY) || "0");
-    const savedPin = sessionStorage.getItem(TEAM_PIN_SESSION_KEY) || "";
-    if (savedPin && expiresAt > Date.now()) {
-      return { valid: true, pin: savedPin, expiresAt };
-    }
-  } catch {}
+  clearStoredPinSession();
   return { valid: false, pin: "", expiresAt: 0 };
 }
 
@@ -304,27 +304,16 @@ export default function Team() {
   const [verifyingPin, setVerifyingPin] = useState(false);
   const [pinExpiredNotice, setPinExpiredNotice] = useState(false);
 
-  const pinUnlocked = Boolean(pinSession.valid && pinSession.expiresAt > nowMs);
-  const remainingMs = Math.max(0, (pinSession.expiresAt || 0) - nowMs);
-  const remainingSec = Math.ceil(remainingMs / 1000);
-  const remainingLabel = `${Math.floor(remainingSec / 60)}:${String(remainingSec % 60).padStart(2, "0")}`;
+  const pinUnlocked = Boolean(pinSession.valid);
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const current = Date.now();
-      setNowMs(current);
-      setPinSession((prev) => {
-        if (prev.valid && prev.expiresAt <= current) {
-          sessionStorage.removeItem(TEAM_PIN_SESSION_KEY);
-          sessionStorage.removeItem(TEAM_PIN_EXPIRY_KEY);
-          setPinInput("");
-          setPinExpiredNotice(true);
-          return { valid: false, pin: "", expiresAt: 0 };
-        }
-        return prev;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
+  const lockPinPrompt = useCallback(() => {
+    setPinSession((prev) => {
+      if (!prev.valid) return prev;
+      clearStoredPinSession();
+      setPinInput("");
+      setPinExpiredNotice(true);
+      return { valid: false, pin: "", expiresAt: 0 };
+    });
   }, []);
 
   const [showAddAdmin, setShowAddAdmin]     = useState(false);
@@ -474,8 +463,8 @@ export default function Team() {
             <h1 className="text-lg font-bold tracking-tight">Admin Team Access</h1>
             <p className="text-xs text-muted-foreground mt-1">
               {pinExpiredNotice
-                ? "Your 5-minute PIN window expired. Re-enter the security PIN to continue."
-                : "Enter the security PIN to view team members and manage administrators (renews every 5 minutes)."}
+                ? "Hovering or clicking elsewhere locked the Teams panel. Enter the security PIN to continue."
+                : "Enter the security PIN to access Teams. Hovering or clicking elsewhere will prompt for the PIN again."}
             </p>
           </div>
           <form onSubmit={handleUnlockPin} className="space-y-3">
@@ -553,12 +542,20 @@ export default function Team() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 pt-4 pb-8 space-y-6">
+    <div
+      className="max-w-3xl mx-auto px-4 pt-4 pb-8 space-y-6"
+      onMouseMove={() => {
+        if (pinUnlocked) lockPinPrompt();
+      }}
+      onClick={() => {
+        if (pinUnlocked) lockPinPrompt();
+      }}
+    >
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold tracking-tight">Team & Admins</h1>
           <p className="text-xs text-muted-foreground">
-            {admins.length} admin(s) · {users.length} total users · PIN renews in <span className="font-mono font-semibold text-orange-400">{remainingLabel}</span>
+            {admins.length} admin(s) · {users.length} total users · <span className="font-mono font-semibold text-orange-400">PIN locks on hover/click</span>
           </p>
         </div>
         <Button onClick={() => setShowAddAdmin((v) => !v)} size="sm" className="gap-1.5">
