@@ -367,7 +367,7 @@ export default function Team() {
     try {
       const cleanPin = pinInput.trim();
       await apiClient.functions.invoke("verifyAdminPin", { pin: cleanPin });
-      const expiresAt = Date.now() + PIN_RENEWAL_MS;
+      const expiresAt = Date.now() + 60 * 1000;
       sessionStorage.setItem(TEAM_PIN_SESSION_KEY, cleanPin);
       sessionStorage.setItem(TEAM_PIN_EXPIRY_KEY, String(expiresAt));
       setPinSession({ valid: true, pin: cleanPin, expiresAt });
