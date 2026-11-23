@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Radio, MapPin, Clock, ChevronRight, CheckCircle2, Loader2, ExternalLink } , Camera from "lucide-react";
+import { Radio, MapPin, Clock, ChevronRight, CheckCircle2, Loader2, ExternalLink , Camera } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import moment from "moment";
 import { useCases, useLiveEntityInvalidation, usePanicAlerts } from "@/hooks/useEntityQueries";
