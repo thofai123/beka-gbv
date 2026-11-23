@@ -36,6 +36,19 @@ import EmptyState from "../components/EmptyState";
 import { motion } from "framer-motion";
 
 const TEAM_PIN_SESSION_KEY = "beka_team_pin_unlocked";
+const TEAM_PIN_EXPIRY_KEY = "beka_team_pin_expires_at";
+const PIN_RENEWAL_MS = 5 * 60 * 1000; // 5 minutes
+
+function getStoredPinSession() {
+  try {
+    const expiresAt = Number(sessionStorage.getItem(TEAM_PIN_EXPIRY_KEY) || "0");
+    const savedPin = sessionStorage.getItem(TEAM_PIN_SESSION_KEY) || "";
+    if (savedPin && expiresAt > Date.now()) {
+      return { valid: true, pin: savedPin, expiresAt };
+    }
+  } catch {}
+  return { valid: false, pin: "", expiresAt: 0 };
+}
 
 const roleConfig = {
   admin:     { color: "bg-purple-500/10 text-purple-400 border-purple-500/30", label: "Admin" },
@@ -285,9 +298,34 @@ export default function Team() {
   const fileInputRef = useRef(null);
 
   const [currentUser, setCurrentUser]   = useState(null);
-  const [pinUnlocked, setPinUnlocked]   = useState(() => sessionStorage.getItem(TEAM_PIN_SESSION_KEY) === "1126");
+  const [pinSession, setPinSession]     = useState(() => getStoredPinSession());
+  const [nowMs, setNowMs]               = useState(() => Date.now());
   const [pinInput, setPinInput]         = useState("");
   const [verifyingPin, setVerifyingPin] = useState(false);
+  const [pinExpiredNotice, setPinExpiredNotice] = useState(false);
+
+  const pinUnlocked = Boolean(pinSession.valid && pinSession.expiresAt > nowMs);
+  const remainingMs = Math.max(0, (pinSession.expiresAt || 0) - nowMs);
+  const remainingSec = Math.ceil(remainingMs / 1000);
+  const remainingLabel = `${Math.floor(remainingSec / 60)}:${String(remainingSec % 60).padStart(2, "0")}`;
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const current = Date.now();
+      setNowMs(current);
+      setPinSession((prev) => {
+        if (prev.valid && prev.expiresAt <= current) {
+          sessionStorage.removeItem(TEAM_PIN_SESSION_KEY);
+          sessionStorage.removeItem(TEAM_PIN_EXPIRY_KEY);
+          setPinInput("");
+          setPinExpiredNotice(true);
+          return { valid: false, pin: "", expiresAt: 0 };
+        }
+        return prev;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const [showAddAdmin, setShowAddAdmin]     = useState(false);
   const [fullName, setFullName]             = useState("");
@@ -320,10 +358,16 @@ export default function Team() {
     if (!pinInput.trim()) return;
     setVerifyingPin(true);
     try {
-      await apiClient.functions.invoke("verifyAdminPin", { pin: pinInput.trim() });
-      sessionStorage.setItem(TEAM_PIN_SESSION_KEY, pinInput.trim());
-      setPinUnlocked(true);
-      toast({ title: "Team Console Unlocked" });
+      const cleanPin = pinInput.trim();
+      await apiClient.functions.invoke("verifyAdminPin", { pin: cleanPin });
+      const expiresAt = Date.now() + PIN_RENEWAL_MS;
+      sessionStorage.setItem(TEAM_PIN_SESSION_KEY, cleanPin);
+      sessionStorage.setItem(TEAM_PIN_EXPIRY_KEY, String(expiresAt));
+      setPinSession({ valid: true, pin: cleanPin, expiresAt });
+      setNowMs(Date.now());
+      setPinInput("");
+      setPinExpiredNotice(false);
+      toast({ title: "Team Console Unlocked", description: "PIN will automatically renew every 5 minutes." });
     } catch (err) {
       toast({
         title: "Incorrect PIN",
@@ -429,7 +473,9 @@ export default function Team() {
           <div>
             <h1 className="text-lg font-bold tracking-tight">Admin Team Access</h1>
             <p className="text-xs text-muted-foreground mt-1">
-              Enter the security PIN to view team members and manage administrators.
+              {pinExpiredNotice
+                ? "Your 5-minute PIN window expired. Re-enter the security PIN to continue."
+                : "Enter the security PIN to view team members and manage administrators (renews every 5 minutes)."}
             </p>
           </div>
           <form onSubmit={handleUnlockPin} className="space-y-3">
@@ -508,10 +554,12 @@ export default function Team() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 pt-4 pb-8 space-y-6">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold tracking-tight">Team & Admins</h1>
-          <p className="text-xs text-muted-foreground">{admins.length} admin(s) · {users.length} total users</p>
+          <p className="text-xs text-muted-foreground">
+            {admins.length} admin(s) · {users.length} total users · PIN renews in <span className="font-mono font-semibold text-orange-400">{remainingLabel}</span>
+          </p>
         </div>
         <Button onClick={() => setShowAddAdmin((v) => !v)} size="sm" className="gap-1.5">
           <UserPlus className="w-4 h-4" /> {showAddAdmin ? "Close" : "Add Admin"}
