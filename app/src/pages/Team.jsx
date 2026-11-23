@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useUsers } from "@/hooks/useEntityQueries";
 import { UserService } from "@/services/UserService";
@@ -296,6 +296,7 @@ export default function Team() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const fileInputRef = useRef(null);
+  const teamPanelRef = useRef(null);
 
   const [currentUser, setCurrentUser]   = useState(null);
   const [pinSession, setPinSession]     = useState(() => getStoredPinSession());
@@ -315,6 +316,23 @@ export default function Team() {
       return { valid: false, pin: "", expiresAt: 0 };
     });
   }, []);
+
+  useEffect(() => {
+    if (!pinUnlocked) return;
+    const handleOutsideActivity = (e) => {
+      const target = e.target;
+      if (!target || !(target instanceof Element)) return;
+      if (teamPanelRef.current && teamPanelRef.current.contains(target)) return;
+      if (target.closest("[role='dialog'], [data-radix-popper-content-wrapper]")) return;
+      lockPinPrompt();
+    };
+    document.addEventListener("mouseover", handleOutsideActivity, true);
+    document.addEventListener("pointerdown", handleOutsideActivity, true);
+    return () => {
+      document.removeEventListener("mouseover", handleOutsideActivity, true);
+      document.removeEventListener("pointerdown", handleOutsideActivity, true);
+    };
+  }, [pinUnlocked, lockPinPrompt]);
 
   const [showAddAdmin, setShowAddAdmin]     = useState(false);
   const [fullName, setFullName]             = useState("");
@@ -543,13 +561,8 @@ export default function Team() {
 
   return (
     <div
+      ref={teamPanelRef}
       className="max-w-3xl mx-auto px-4 pt-4 pb-8 space-y-6"
-      onMouseMove={() => {
-        if (pinUnlocked) lockPinPrompt();
-      }}
-      onClick={() => {
-        if (pinUnlocked) lockPinPrompt();
-      }}
     >
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
