@@ -231,48 +231,23 @@ export default function Dashboard() {
                 <div className="space-y-1.5 pt-1 border-t border-white/10">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">
-                      Emergency Contacts ({dispatchSummary.contacts.length}):
+                      Automatic SMS Alerts ({dispatchSummary.smsDelivered}/{dispatchSummary.contacts.length}):
                     </p>
-                    <a
-                      href={`sms:${dispatchSummary.contacts.map((c) => String(c.phone || "").replace(/[^\d+]/g, "")).filter(Boolean).join(",")}?body=${encodeURIComponent(dispatchSummary.smsMessage)}`}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-orange-500 text-black text-[10px] font-bold"
-                    >
-                      <MessageSquare className="w-3 h-3" /> SMS All ({dispatchSummary.contacts.length})
-                    </a>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 text-[10px] font-semibold">
+                      <MessageSquare className="w-3 h-3" /> {dispatchSummary.sent ? "Dispatched" : "Queued"}
+                    </span>
                   </div>
-                  {dispatchSummary.contacts.map((c, idx) => {
-                    const cleanPhone = String(c.phone || "").replace(/[^\d+]/g, "");
-                    const waPhone = cleanPhone.replace(/^\+/, "");
-                    const encodedBody = encodeURIComponent(dispatchSummary.smsMessage);
-                    return (
-                      <div key={c.id || idx} className="flex items-center justify-between gap-2 bg-white/5 rounded-lg px-2.5 py-1.5">
-                        <div className="min-w-0">
-                          <p className="text-xs font-medium text-white truncate">{c.name}</p>
-                          <p className="text-[10px] font-mono text-zinc-400">{c.phone}</p>
-                        </div>
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          {cleanPhone && (
-                            <>
-                              <a
-                                href={`sms:${cleanPhone}?body=${encodedBody}`}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-orange-500 text-black text-[10px] font-bold"
-                              >
-                                <MessageSquare className="w-3 h-3" /> SMS
-                              </a>
-                              <a
-                                href={`https://wa.me/${waPhone}?text=${encodedBody}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-600 text-white text-[10px] font-bold"
-                              >
-                                WA
-                              </a>
-                            </>
-                          )}
-                        </div>
+                  {dispatchSummary.contacts.map((c, idx) => (
+                    <div key={c.id || idx} className="flex items-center justify-between gap-2 bg-white/5 rounded-lg px-2.5 py-1.5">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-white truncate">{c.name}</p>
+                        <p className="text-[10px] font-mono text-zinc-400">{c.phone}</p>
                       </div>
-                    );
-                  })}
+                      <span className="text-[10px] font-semibold text-emerald-400 flex-shrink-0">
+                        {dispatchSummary.sent ? "SMS Sent" : "Queued"}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div className="flex items-center justify-between pt-1 border-t border-white/10">
