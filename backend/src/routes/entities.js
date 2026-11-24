@@ -81,6 +81,8 @@ function readScopeWhere(policy, user) {
     case "own":
       if (policy.adminOverride && isAdmin(user)) return {};
       return ownershipWhere(policy, user);
+    case "none":
+      return { id: "__none__" };
     default:
       return { id: "__none__" };
   }
@@ -100,8 +102,11 @@ function canCreate(policy, user) {
 
 // Is this specific record writable (update/delete) by the user?
 function canWriteRecord(policy, user, record) {
+  if (policy.write === "none") return false;
   if (isAdmin(user)) return true;
   switch (policy.write) {
+    case "staff":
+      return isStaff(user);
     case "admin":
       return false;
     case "staff+own":
@@ -120,6 +125,57 @@ function ownsRecord(policy, user, record) {
   return fields.some((f) => record[f] && record[f] === user.email);
 }
 
+function sanitizeEntityRecord(name, record) {
+  if (name !== "User" || !record) return record;
+  const { password_hash, ...safeRecord } = record;
+  return safeRecord;
+}
+
+async function canCreateEntityRecord(name, policy, user, data) {
+  if (!canCreate(policy, user)) return false;
+
+  if (name === "Message" || name === "CaseUpdate") {
+    if (!data.case_id) return false;
+    const parentCase = await prisma.case.findUnique({ where: { id: data.case_id } });
+    if (!parentCase || (!isStaff(user) && !ownsRecord(policies.Case, user, parentCase))) {
+      return false;
+    }
+
+    const author = await prisma.user.findUnique({
+      where: { email: user.email },
+      select: { full_name: true, first_name: true, last_name: true },
+    });
+    const authorName =
+      author?.full_name ||
+      [author?.first_name, author?.last_name].filter(Boolean).join(" ") ||
+      user.email;
+
+    if (name === "Message") {
+      data.sender_name = authorName;
+      data.sender_role = isStaff(user) ? user.role : "survivor";
+    } else {
+      data.updated_by_name = authorName;
+    }
+  }
+
+  if (name === "EvidenceVault" && data.case_id) {
+    const parentCase = await prisma.case.findUnique({ where: { id: data.case_id } });
+    if (!parentCase || (!isStaff(user) && !ownsRecord(policies.Case, user, parentCase))) {
+      return false;
+    }
+  }
+
+  if (name === "AuditLog") {
+    data.actor_id = user.sub;
+    data.actor_email = user.email;
+    data.actor_role = user.role;
+    data.created_by = user.email;
+    data.timestamp = new Date().toISOString();
+  }
+
+  return true;
+}
+
 // GET /entities/:name  -> list
 router.get("/:name", async (req, res, next) => {
   try {
@@ -132,7 +188,7 @@ router.get("/:name", async (req, res, next) => {
     const skip = req.query.skip ? Number(req.query.skip) : undefined;
 
     const rows = await model.findMany({ where, orderBy, take, skip });
-    res.json(rows);
+    res.json(rows.map((row) => sanitizeEntityRecord(req.params.name, row)));
   } catch (e) { next(e); }
 });
 
@@ -150,7 +206,7 @@ router.get("/:name/filter", async (req, res, next) => {
     const skip = req.query.skip ? Number(req.query.skip) : undefined;
 
     const rows = await model.findMany({ where, orderBy, take, skip });
-    res.json(rows);
+    res.json(rows.map((row) => sanitizeEntityRecord(req.params.name, row)));
   } catch (e) { next(e); }
 });
 
@@ -165,7 +221,7 @@ router.get("/:name/:id", async (req, res, next) => {
 
     // enforce read scope on the single record
     const scope = readScopeWhere(policy, req.user);
-    if (scope.id === "__none__" && !isAdmin(req.user)) {
+    if (policy.read === "none" || (scope.id === "__none__" && !isAdmin(req.user))) {
       return res.status(403).json({ message: "Forbidden" });
     }
     if (policy.read === "own" || policy.read === "staff+own") {
@@ -173,7 +229,7 @@ router.get("/:name/:id", async (req, res, next) => {
         return res.status(403).json({ message: "Forbidden" });
       }
     }
-    res.json(record);
+    res.json(sanitizeEntityRecord(req.params.name, record));
   } catch (e) { next(e); }
 });
 
@@ -182,14 +238,47 @@ router.post("/:name", async (req, res, next) => {
   try {
     const { model, policy } = getModel(req.params.name);
     if (!model || !policy) return res.status(404).json({ message: "Unknown entity" });
-    if (!canCreate(policy, req.user)) return res.status(403).json({ message: "Forbidden" });
-
     const data = { ...req.body };
+    if (!(await canCreateEntityRecord(req.params.name, policy, req.user, data))) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
     delete data.id;
-    if (req.user?.email && (!data.created_by || !isStaff(req.user))) data.created_by = req.user.email;
+    delete data.created_by;
+    delete data.created_date;
+    if (req.user?.email) data.created_by = req.user.email;
 
     const created = await model.create({ data });
-    res.status(201).json(created);
+
+    if (req.params.name === "EvidenceVault") {
+      try {
+        const staff = await prisma.user.findMany({
+          where: { role: { in: ["admin", "responder"] } },
+          select: { email: true },
+        });
+        const caseLabel = created.case_ref ? ` linked to case ${created.case_ref}` : "";
+        await Promise.all(
+          staff.map((recipient) =>
+            prisma.notification.create({
+              data: {
+                recipient_email: recipient.email,
+                title: "📎 New Evidence Submitted",
+                body: `A survivor uploaded "${created.file_name}"${caseLabel}.`,
+                type: "case_update",
+                related_case_id: created.case_id || null,
+                created_by: req.user.email,
+              },
+            }).catch((error) => {
+              console.error("[evidence] staff notification failed:", error?.message);
+            }),
+          ),
+        );
+      } catch (error) {
+        console.error("[evidence] staff notification failed:", error?.message);
+      }
+    }
+
+    res.status(201).json(sanitizeEntityRecord(req.params.name, created));
   } catch (e) { next(e); }
 });
 
@@ -209,7 +298,7 @@ router.put("/:name/:id", async (req, res, next) => {
     delete data.created_date;
 
     const updated = await model.update({ where: { id: req.params.id }, data });
-    res.json(updated);
+    res.json(sanitizeEntityRecord(req.params.name, updated));
   } catch (e) { next(e); }
 });
 

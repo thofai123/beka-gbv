@@ -73,9 +73,8 @@ router.post("/upload", requireAuth, receiveFile, async (req, res) => {
     } else {
       fs.renameSync(tmpPath, finalPath);
     }
-    const publicBase = process.env.PUBLIC_UPLOAD_BASE || "/uploads";
     res.json({
-      file_url: `${publicBase}/${id}${ext}`,
+      file_url: `/uploads/${id}${ext}`,
       file_name: req.file.originalname,
       file_size_kb: Math.round(fs.statSync(finalPath).size / 1024),
       content_type: detected.mime,
@@ -162,7 +161,7 @@ function fallbackGuide(query = "") {
   if (q.includes("evidence") || q.includes("photo") || q.includes("screenshot") || q.includes("proof")) {
     return {
       urgent: false,
-      reply: "You can securely store photos, harassment screenshots, and documents in your encrypted Evidence Vault.",
+      reply: "You can store photos, harassment screenshots, and documents in your access-controlled Evidence Vault.",
       actions: [
         { label: "Evidence Vault", description: "Upload and lock evidence safely", route: "/beka/evidence" },
         { label: "Report Incident", description: "Log what happened step by step", route: "/beka/report" },

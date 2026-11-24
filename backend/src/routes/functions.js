@@ -358,6 +358,11 @@ router.post("/verifyOTP", requireAuth, async (req, res, next) => {
 // POST /functions/redeemAccessCode
 router.post("/redeemAccessCode", requireAuth, async (req, res, next) => {
   try {
+    const attemptLimit = rateLimit(`redeemAccessCode:${req.user.email}`, 5, 15 * 60 * 1000);
+    if (!attemptLimit.ok) {
+      return res.status(429).json({ error: "Too many access-code attempts. Try again later." });
+    }
+
     const code = String(req.body?.code || "").trim().toUpperCase();
     const access = await prisma.accessCode.findFirst({ where: { code, is_active: true } });
     if (!access) return res.status(400).json({ error: "Invalid or inactive code" });

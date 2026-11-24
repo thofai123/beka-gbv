@@ -329,7 +329,7 @@ export default function LoginPage() {
 
         {/* Footer note */}
         <p style={{ color: "rgba(255,255,255,0.18)", fontSize: 10, textAlign: "center", marginTop: 26, letterSpacing: "0.05em" }}>
-          Safe, encrypted &amp; confidential
+          Confidential support &amp; safety tools
         </p>
       </div>
 

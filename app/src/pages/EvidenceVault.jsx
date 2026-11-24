@@ -57,7 +57,7 @@ export default function EvidenceVault() {
       {/* Security Notice */}
       <p className="text-xs text-muted-foreground flex items-center gap-1.5">
         <Lock className="w-3.5 h-3.5 flex-shrink-0" />
-        Files are encrypted and only visible to you.
+        Files are access-controlled and visible to you and authorized staff.
       </p>
 
       {/* Survivor Upload Section */}

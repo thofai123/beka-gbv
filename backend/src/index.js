@@ -5,7 +5,9 @@ import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { attachUser } from "./auth.js";
+import { attachUser, requireAuth } from "./auth.js";
+import { prisma } from "./db.js";
+import { isStaff } from "./policies.js";
 import authRoutes from "./routes/auth.js";
 import entityRoutes from "./routes/entities.js";
 import functionRoutes from "./routes/functions.js";
@@ -47,8 +49,37 @@ api.use("/integrations", integrationRoutes);
 app.use("/api", api);
 app.use("/", api);
 
-// Serve uploaded evidence files
-app.use("/uploads", express.static(UPLOAD_DIR));
+// Serve uploaded evidence only to its owner or staff.
+app.get("/uploads/:filename", requireAuth, async (req, res, next) => {
+  try {
+    const filename = String(req.params.filename || "");
+    if (
+      filename !== path.basename(filename) ||
+      !/^[a-f0-9]{32}\.(?:pdf|docx)$/i.test(filename)
+    ) {
+      return res.sendStatus(404);
+    }
+
+    const evidence = await prisma.evidenceVault.findFirst({
+      where: { file_url: { endsWith: filename } },
+    });
+    if (!evidence) return res.sendStatus(404);
+    if (!isStaff(req.user) && evidence.created_by !== req.user.email) {
+      return res.sendStatus(403);
+    }
+
+    const uploadRoot = path.resolve(UPLOAD_DIR);
+    const filePath = path.resolve(uploadRoot, filename);
+    if (path.dirname(filePath) !== uploadRoot || !fs.existsSync(filePath)) {
+      return res.sendStatus(404);
+    }
+
+    res.set("Cache-Control", "private, no-store");
+    return res.sendFile(filePath);
+  } catch (error) {
+    return next(error);
+  }
+});
 
 // --- SERVE FRONTEND STATIC ASSETS (Unified Absolute Path) ---
 const frontendDistPath = path.resolve('/srv/beka/app/dist');

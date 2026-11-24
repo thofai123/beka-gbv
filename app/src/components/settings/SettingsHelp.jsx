@@ -15,7 +15,7 @@ const STEPS = [
 const FAQS = [
   { q: "What does the HELP button do?", a: "It immediately sends an emergency alert with your custom title and current location to responders and to each of your saved destinations." },
   { q: "Why do I need to allow location access?", a: "Your location is included in every emergency alert so help can find you fast. If location is unavailable the alert will say 'Location not available — allow locations'." },
-  { q: "Is my information private?", a: "Yes. Your location and reports are encrypted and only shared with assigned responders or your trusted contacts when you trigger help." },
+  { q: "Is my information private?", a: "Yes. Reports use app access controls. When you trigger help, your location is shared with responders and selected contacts according to your settings." },
   { q: "Does the app work offline?", a: "Yes — panic alerts are queued offline and sent automatically when your connection is restored." },
   { q: "Can I delete my account?", a: "Yes. Go to Settings → Account → Danger Zone to permanently delete your account and all data." },
 ];

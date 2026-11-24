@@ -9,8 +9,8 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/lib/AuthContext";
 import { FileText, Image, Loader2, Upload, ShieldCheck } from "lucide-react";
 import { EvidenceService } from "@/services/EvidenceService";
-import { UserService } from "@/services/UserService";
-import { NotificationManager } from "@/services/NotificationService";
+
+
 
 export default function SurvivorEvidenceUpload({ cases, onUploaded }) {
   const { user } = useAuth();
@@ -49,14 +49,6 @@ export default function SurvivorEvidenceUpload({ cases, onUploaded }) {
         file_size_kb: Math.round(form.file.size / 1024),
         is_sensitive: true,
       });
-
-      // Unified notification manager prevents duplicate system notifications.
-      try {
-        const admins = await UserService.filter({ role: "admin" });
-        await Promise.all(admins.map((admin) => NotificationManager.evidenceUploaded(admin.email, evidence)));
-      } catch (e) {
-        console.error("Admin notification failed (non-fatal):", e?.message);
-      }
 
       setForm({ case_id: "", description: "", file: null, file_type: "document" });
       await onUploaded?.();
@@ -123,7 +115,7 @@ export default function SurvivorEvidenceUpload({ cases, onUploaded }) {
         </div>
 
         <div className="flex items-center justify-end gap-3 min-w-0">
-          <span className="text-xs text-muted-foreground flex-shrink-0">🔒 Encrypted &amp; secure</span>
+          <span className="text-xs text-muted-foreground flex-shrink-0">🔒 Access-controlled</span>
           <Button onClick={uploadEvidence} disabled={uploading || !form.file} className="gap-2 flex-shrink-0">
             {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
             <span>Upload</span>

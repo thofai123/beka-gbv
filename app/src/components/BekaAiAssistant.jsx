@@ -170,7 +170,7 @@ function resolveInstantGuide(rawQuery) {
     return {
       urgent: false,
       reply:
-        "Use the encrypted Evidence Vault to safely lock photos, screenshots, and documents, or submit a formal incident report.",
+        "Use the access-controlled Evidence Vault to store photos, screenshots, and documents, or submit a formal incident report.",
       actions: [
         { label: "Open Evidence Vault", description: "Upload & lock proof securely", route: "/beka/evidence" },
         { label: "Report an Incident", description: "Log a new GBV/TFGBV incident", route: "/beka/report" },

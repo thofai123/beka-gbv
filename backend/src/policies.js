@@ -21,13 +21,13 @@ export const STAFF_ROLES = ["admin", "responder"];
 export const policies = {
   AccessCode: {
     create: "admin",
-    read: "auth",          // app reads active codes during redemption
+    read: "admin",         // codes are redeemed only through the backend function
     write: "admin",
   },
   AuditLog: {
-    create: "auth",
+    create: "staff",
     read: "admin",
-    write: "admin",
+    write: "none",
   },
   Case: {
     create: "auth",
@@ -37,9 +37,9 @@ export const policies = {
     ownerFields: ["created_by", "reporter_email", "assigned_responder"],
   },
   CaseUpdate: {
-    create: "auth",
+    create: "staff",
     read: "staff+own",
-    write: "staff+own",
+    write: "staff",
   },
   EmergencyContact: {
     create: "auth",
@@ -63,21 +63,21 @@ export const policies = {
     write: "staff+own",
   },
   Notification: {
-    create: "auth",
+    create: "staff",
     read: "own",
     write: "own",
     ownerFields: ["recipient_email"],
     adminOverride: true,
   },
   OtpVerification: {
-    create: "public",
-    read: "admin",
-    write: "auth",
+    create: "none",
+    read: "none",
+    write: "none",
   },
   PanicAlert: {
-    create: "auth",        // original was create:false (server-only); we allow via triggerEmergency fn
+    create: "none",
     read: "staff+own",
-    write: "staff+own",
+    write: "staff",
     ownerFields: ["created_by", "responder_email"],
   },
   Resource: {
@@ -96,11 +96,9 @@ export const policies = {
     write: "staff+own",
   },
   TwoFactorCode: {
-    create: "public",
-    read: "own",
-    write: "auth",
-    ownerFields: ["user_email"],
-    adminOverride: true,
+    create: "none",
+    read: "none",
+    write: "none",
   },
   User: {
     create: "admin",
@@ -108,9 +106,9 @@ export const policies = {
     write: "admin",
   },
   WhatsAppSession: {
-    create: "public",
+    create: "none",
     read: "admin",
-    write: "auth",
+    write: "none",
   },
 };
 

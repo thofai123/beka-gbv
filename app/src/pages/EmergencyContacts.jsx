@@ -294,7 +294,7 @@ export default function EmergencyContacts() {
       <div className="bg-primary/5 border border-primary/15 rounded-xl p-3 flex items-start gap-2">
         <Lock className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
         <p className="text-xs text-foreground/80">
-          Encrypted at rest. Only you can view or edit these contacts. They receive a masked alert with case reference — no personal details.
+          Contacts use app access controls. When you trigger SOS, selected contacts receive your name and case reference, and may receive your location based on your settings.
         </p>
       </div>
 

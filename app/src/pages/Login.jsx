@@ -224,7 +224,7 @@ export default function Login() {
           </form>
 
           <p style={{ textAlign: "center", fontSize: "12px", marginTop: "20px", color: "rgba(255,255,255,0.3)" }}>
-            Safe, encrypted &amp; confidential
+            Confidential support &amp; safety tools
           </p>
 
           <p style={{ textAlign: "center", fontSize: "13px", marginTop: "12px", color: "rgba(255,255,255,0.5)" }}>

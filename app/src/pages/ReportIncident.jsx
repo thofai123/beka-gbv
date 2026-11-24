@@ -336,7 +336,7 @@ Return a JSON with risk_level and a brief ai_summary (2-3 sentences explaining t
                 )}
 
                 <p className="text-xs text-center text-muted-foreground">
-                  By submitting, you consent to this information being used to provide assistance. All data is encrypted and treated confidentially.
+                  By submitting, you consent to this information being used to provide assistance. Submitted reports are stored for case handling and are visible to authorized staff under the app's access controls.
                 </p>
               </motion.div>
             )}

@@ -9,7 +9,7 @@ const TERMS = [
 ];
 
 const PRIVACY = [
-  "Your location and case data are encrypted in transit and at rest.",
+  "When accessed over HTTPS, data is encrypted in transit. Case and location records use app access controls; storage encryption depends on the server configuration.",
   "Data is shared only with assigned responders or your saved destinations when you trigger help.",
   "We comply with the Zambia Data Protection Act.",
   "You can delete your account and all associated data at any time from Settings → Account.",

@@ -79,17 +79,9 @@ router.post("/register", async (req, res, next) => {
 
     if (!emailResult.ok) {
       console.error(`[register] OTP email failed for ${email}:`, emailResult.error || "unknown error");
-      const verifiedUser = await prisma.user.update({
-        where: { email },
-        data: { email_verified: true },
-      });
-      const access_token = signToken(verifiedUser);
-      return res.status(201).json({
-        ...publicUser(verifiedUser),
-        email,
+      return res.status(502).json({
+        message: "Could not send the verification email. Please try again.",
         otp_sent: false,
-        auto_verified: true,
-        access_token,
       });
     }
 

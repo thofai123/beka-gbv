@@ -138,7 +138,7 @@ function InlineLogin() {
                   <ChevronRight className="w-4 h-4 ml-auto mr-1 text-white/30" />
                 </button>
                 <p className="text-center text-white/25 text-xs pt-1">
-                  Safe, encrypted & confidential
+                  Confidential support &amp; safety tools
                 </p>
               </div>
             </motion.div>

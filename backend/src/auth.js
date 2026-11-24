@@ -1,7 +1,16 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev-insecure-secret-change-me";
+const configuredJwtSecret = process.env.JWT_SECRET;
+if (
+  process.env.NODE_ENV === "production" &&
+  (!configuredJwtSecret ||
+    configuredJwtSecret.length < 32 ||
+    configuredJwtSecret === "dev-insecure-secret-change-me")
+) {
+  throw new Error("JWT_SECRET must be set to at least 32 characters in production");
+}
+const JWT_SECRET = configuredJwtSecret || "dev-insecure-secret-change-me";
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "30d";
 
 export function signToken(user) {

@@ -80,11 +80,11 @@ export default function SecurityPage() {
             <circle cx="40" cy="40" r="34" fill="none" stroke="hsl(160,60%,42%)" strokeWidth="8"
               strokeDasharray={`${2 * Math.PI * 34 * 0.92} ${2 * Math.PI * 34}`} strokeLinecap="round" />
           </svg>
-          <span className="absolute inset-0 flex items-center justify-center text-lg font-bold text-green-700">92%</span>
+          <span className="absolute inset-0 flex items-center justify-center text-lg font-bold text-green-700">✓</span>
         </div>
         <div>
-          <p className="text-sm font-medium text-green-800">Security Score: Strong</p>
-          <p className="text-xs text-green-700/70 mt-1">All critical protections are active. Data is encrypted in transit and access is role-controlled.</p>
+          <p className="text-sm font-medium text-green-800">Security Controls</p>
+          <p className="text-xs text-green-700/70 mt-1">The backend applies role and record-ownership checks to protected API operations.</p>
         </div>
       </motion.div>
 
@@ -92,18 +92,18 @@ export default function SecurityPage() {
       <div>
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Active Protections</h2>
         <div className="space-y-3">
-          <SecurityFeature index={0} icon={Globe} title="TLS 1.3 — Transport Encryption" status="active"
-            description="All data transmitted between clients and servers is encrypted using TLS 1.3, preventing interception."
-            detail="Protocol: TLS 1.3 · Cipher: AES-256-GCM · HSTS enabled" />
-          <SecurityFeature index={1} icon={Lock} title="AES-256 — Data at Rest Encryption" status="active"
-            description="All stored data including case records, evidence, and survivor information is encrypted at rest using AES-256."
-            detail="Algorithm: AES-256-GCM · Key management: Platform-managed HSM" />
-          <SecurityFeature index={2} icon={Key} title="End-to-End Encrypted Evidence Vault" status="active"
-            description="Evidence files are uploaded directly to encrypted storage. File URLs are access-controlled and time-limited."
-            detail="Storage: Encrypted object store · Access: Signed URLs (300s TTL)" />
+          <SecurityFeature index={0} icon={Globe} title="HTTPS — Transport Security" status="hosting-dependent"
+            description="Use the application over HTTPS to encrypt data in transit."
+            detail="TLS version and HSTS depend on the hosting configuration." />
+          <SecurityFeature index={1} icon={Lock} title="Server Storage — Access Controls" status="active"
+            description="Records and uploaded files are stored on the server. Storage encryption depends on the hosting configuration."
+            detail="The application does not implement app-level AES encryption." />
+          <SecurityFeature index={2} icon={Key} title="Evidence File Access" status="active"
+            description="Document uploads use an authenticated owner-or-staff check. Files are stored on server disk and are not end-to-end encrypted."
+            detail="Access: owner and staff · Storage: server upload directory" />
           <SecurityFeature index={3} icon={Users} title="Role-Based Access Control (RBAC)" status="active"
-            description="Every data operation is gated by role-level rules enforced at the database layer — not just the UI."
-            detail="Roles: admin · responder · survivor · Enforced: server-side RLS" />
+            description="The backend applies role and record-ownership rules to protected API operations."
+            detail="Enforcement: Express API policy checks" />
           <SecurityFeature index={4} icon={Eye} title="Anonymous Case Reporting" status="active"
             description="Survivors can submit reports without revealing their identity. Anonymous cases hide PII from all non-admin users."
             detail="PII fields: masked for responders · Admin-only full access" />

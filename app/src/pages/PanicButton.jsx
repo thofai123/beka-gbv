@@ -193,7 +193,7 @@ export default function PanicButton() {
             <div>
               <h2 className="text-2xl font-bold">Saved Offline</h2>
               <p className="text-muted-foreground mt-2">
-                Your alert is encrypted on this device and will send the moment you reconnect.
+                Your alert is saved on this device and will send when you reconnect.
               </p>
             </div>
             <Button variant="outline" onClick={reset}>
