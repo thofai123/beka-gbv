@@ -9,3 +9,4 @@ app/android/.gradle/
 app/android/app/build/
 *.log
 .DS_Store
+beka-gbv/
