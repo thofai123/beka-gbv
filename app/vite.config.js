@@ -33,6 +33,7 @@ export default defineConfig({
   preview: {
     port: 4173,
     host: true,
+    allowedHosts: ["beka-production.up.railway.app", ".up.railway.app"],
   },
   build: {
     outDir: "dist",
