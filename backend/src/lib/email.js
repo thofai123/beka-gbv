@@ -35,7 +35,37 @@ export async function sendEmail({ to, subject, html, text }) {
   const rawFrom = process.env.SMTP_FROM || "BEKA Safe4All <mthofai@gmail.com>";
   const sender = parseFrom(rawFrom);
 
-  // 1. Brevo Transactional Email HTTP API (HTTPS 443 — fast & reliable on Render)
+  // 1. Gmail HTTPS Bridge (Google Apps Script Web App — primary)
+  const gmailWebhookUrl = process.env.GMAIL_WEBHOOK_URL;
+  const gmailWebhookSecret = process.env.GMAIL_WEBHOOK_SECRET;
+  if (gmailWebhookUrl && gmailWebhookSecret) {
+    try {
+      const res = await fetch(gmailWebhookUrl, {
+        method: "POST",
+        signal: AbortSignal.timeout(8000),
+        headers: { "Content-Type": "application/json" },
+        redirect: "follow",
+        body: JSON.stringify({
+          secret: gmailWebhookSecret,
+          to,
+          subject,
+          html: html || text,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok === false) {
+        const errMsg = data?.error || `Gmail bridge HTTP ${res.status}`;
+        console.error(`[email] Gmail bridge failed for ${to}:`, errMsg);
+        return { ok: false, error: errMsg };
+      }
+      return { ok: true, messageId: "gmail-bridge" };
+    } catch (err) {
+      console.error(`[email] Gmail bridge network error for ${to}:`, err.message);
+      return { ok: false, error: err.message };
+    }
+  }
+
+  // 2. Brevo Transactional Email HTTP API (HTTPS 443)
   if (process.env.BREVO_API_KEY) {
     try {
       const res = await fetch("https://api.brevo.com/v3/smtp/email", {
@@ -63,36 +93,6 @@ export async function sendEmail({ to, subject, html, text }) {
       return { ok: true, messageId: data?.messageId || "brevo-api" };
     } catch (err) {
       console.error(`[email] Brevo network error for ${to}:`, err.message);
-      return { ok: false, error: err.message };
-    }
-  }
-
-  // 2. Gmail HTTPS Bridge (Google Apps Script Web App)
-  const gmailWebhookUrl = process.env.GMAIL_WEBHOOK_URL;
-  const gmailWebhookSecret = process.env.GMAIL_WEBHOOK_SECRET;
-  if (gmailWebhookUrl && gmailWebhookSecret) {
-    try {
-      const res = await fetch(gmailWebhookUrl, {
-        method: "POST",
-        signal: AbortSignal.timeout(8000),
-        headers: { "Content-Type": "application/json" },
-        redirect: "follow",
-        body: JSON.stringify({
-          secret: gmailWebhookSecret,
-          to,
-          subject,
-          html: html || text,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data.ok === false) {
-        const errMsg = data?.error || `Gmail bridge HTTP ${res.status}`;
-        console.error(`[email] Gmail bridge failed for ${to}:`, errMsg);
-        return { ok: false, error: errMsg };
-      }
-      return { ok: true, messageId: "gmail-bridge" };
-    } catch (err) {
-      console.error(`[email] Gmail bridge network error for ${to}:`, err.message);
       return { ok: false, error: err.message };
     }
   }
